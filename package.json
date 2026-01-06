@@ -1,17 +1,21 @@
 {
   "name": "zodynamo",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "sideEffects": false,
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "files": [
+    "README.md",
+    "LICENSE"
+  ],
   "main": "index.js",
 
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "packageManager": "pnpm@10.26.2",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.616.0",

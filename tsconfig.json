@@ -1,0 +1,26 @@
+{
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "incremental": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "baseUrl": "./src",
+    "paths": {
+      "~/*": [
+        "*"
+      ]
+    },
+    "types": [
+      "vitest/globals"
+    ]
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "dist"
+  ]
+}

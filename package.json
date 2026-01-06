@@ -35,6 +35,10 @@
     }
   },
   "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ugurhicyilmam/zodynamo.git"
+  },
   "author": "",
   "license": "MIT",
   "packageManager": "pnpm@10.26.2",

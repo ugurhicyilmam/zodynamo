@@ -4,6 +4,8 @@
 ![npm](https://img.shields.io/npm/v/zodynamo)
 ![downloads](https://img.shields.io/npm/dm/zodynamo)
 
+> ⚠️ **Note**: This project is currently in development. There are no official releases available yet.
+
 Zodynamo is a type-safe DynamoDB modeling and access layer built on top of
 `@aws-sdk/lib-dynamodb` and `zod`. It helps you define tables, entities, keys,
 and indexes with strong TypeScript inference, then run common DynamoDB

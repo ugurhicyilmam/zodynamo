@@ -12,6 +12,16 @@ import {
 import { FieldPath, PickByPaths } from './FieldPath'
 import { Table } from './Table'
 
+/**
+ * Defines how to construct a key part (hash or range) from entity fields.
+ *
+ * @template TSchema - The Zod schema for the entity
+ * @template TKeyFields - The field paths used to calculate this key part
+ * @template TResult - The resulting DynamoDB key type (string or number)
+ *
+ * @property fields - Array of dot-notation field paths required for calculation
+ * @property calculate - Function that computes the key value from the specified fields
+ */
 type KeyPartDefinition<
   TSchema extends ZodSchema,
   TKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
@@ -21,6 +31,16 @@ type KeyPartDefinition<
   calculate: (item: PickByPaths<z.infer<TSchema>, TKeyFields[number]>) => TResult
 }
 
+/**
+ * Type definition for local secondary index configurations on an Entity.
+ *
+ * Local indexes share the table's hash key but use a different range key.
+ * Each index requires a rangeKey definition specifying fields and calculation logic.
+ *
+ * @template TTable - The table configuration
+ * @template TSchema - The entity's Zod schema
+ * @template TLocalIndexRangeKeyFields - Map of index names to their range key field paths
+ */
 export type EntityLocalIndexesDefinition<
   TTable extends Table<any>,
   TSchema extends ZodSchema,
@@ -37,6 +57,16 @@ export type EntityLocalIndexesDefinition<
   }
 }
 
+/**
+ * Type definition for global secondary index configurations on an Entity.
+ *
+ * Global indexes have their own hash and optional range keys, independent
+ * from the table's primary index. Each index requires field mappings and
+ * calculation logic.
+ *
+ * @template TTable - The table configuration
+ * @template TSchema - The entity's Zod schema
+ */
 export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema extends ZodSchema> = {
   [K in GlobalIndexName<TTable>]?: {
     hashKey: KeyPartDefinition<

@@ -3,20 +3,47 @@ import { PickByPaths } from './FieldPath'
 import { InferEntity } from './InferEntity'
 import { Prettify } from './utils'
 
+// --- Internal Helpers ---
+
+/** @internal */
 type PickByPathsOrEmpty<T, P> = [P] extends [never] ? {} : PickByPaths<T, Extract<P, string>>
+
+/** @internal */
 type LocalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any>> = Extract<
   T['localIndexes'],
   Record<string, any>
 >
+
+/** @internal */
 type GlobalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any>> = Extract<
   T['globalIndexes'],
   Record<string, any>
 >
 
+// --- Primary Key Field Inference ---
+
+/**
+ * Infers the subset of entity fields required for the hash key calculation.
+ *
+ * @template T - The Entity type
+ *
+ * @example
+ * ```ts
+ * type HashFields = InferHashKeyFields<typeof userEntity>
+ * // Result: fields referenced in hashKey.fields
+ * ```
+ */
 export type InferHashKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
   PickByPathsOrEmpty<InferEntity<T>, T['key']['hashKey']['fields'][number]>
 >
 
+/**
+ * Infers the subset of entity fields required for the range key calculation.
+ *
+ * Returns an empty object if the entity has no range key.
+ *
+ * @template T - The Entity type
+ */
 export type InferRangeKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> =
   Prettify<
     T['key'] extends { rangeKey: { fields: readonly unknown[] } }
@@ -24,10 +51,25 @@ export type InferRangeKeyFields<T extends Entity<any, any, any, any, any, any, a
       : {}
   >
 
+/**
+ * Infers the combined subset of entity fields required for primary key calculation.
+ *
+ * Combines both hash key and range key fields.
+ *
+ * @template T - The Entity type
+ */
 export type InferKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
   InferHashKeyFields<T> & InferRangeKeyFields<T>
 >
 
+// --- Local Index Inference ---
+
+/**
+ * Extracts the names of all local secondary indexes defined on an entity.
+ *
+ * @template T - The Entity type
+ * @returns Union of local index names, or never if none defined
+ */
 export type InferLocalIndexNames<T extends Entity<any, any, any, any, any, any, any, any>> =
   T extends Entity<any, any, any, any, any, any, infer TLocalIndexRangeKeyFields, any>
     ? keyof TLocalIndexRangeKeyFields extends never
@@ -35,6 +77,12 @@ export type InferLocalIndexNames<T extends Entity<any, any, any, any, any, any, 
       : Extract<keyof TLocalIndexRangeKeyFields, string>
     : never
 
+/**
+ * Infers a map of all local index range key fields for an entity.
+ *
+ * @template T - The Entity type
+ * @returns Object mapping index names to their required field subsets
+ */
 export type InferLocalIndexFields<T extends Entity<any, any, any, any, any, any, any, any>> =
   InferLocalIndexNames<T> extends never
     ? {}
@@ -46,6 +94,12 @@ export type InferLocalIndexFields<T extends Entity<any, any, any, any, any, any,
         }
       : {}
 
+/**
+ * Infers the subset of entity fields required for a specific local index range key.
+ *
+ * @template T - The Entity type
+ * @template TIndexName - The name of the local index
+ */
 export type InferLocalIndexRangeKeyFields<
   T extends Entity<any, any, any, any, any, any, any, any>,
   TIndexName extends InferLocalIndexNames<T>
@@ -59,9 +113,23 @@ export type InferLocalIndexRangeKeyFields<
       >
     : {}
 
+// --- Global Index Inference ---
+
+/**
+ * Extracts the names of all global secondary indexes defined on an entity.
+ *
+ * @template T - The Entity type
+ * @returns Union of global index names, or never if none defined
+ */
 export type InferGlobalIndexNames<T extends Entity<any, any, any, any, any, any, any, any>> =
   T['globalIndexes'] extends Record<string, any> ? Extract<keyof T['globalIndexes'], string> : never
 
+/**
+ * Infers the subset of entity fields required for a specific global index hash key.
+ *
+ * @template T - The Entity type
+ * @template TIndexName - The name of the global index
+ */
 export type InferGlobalIndexHashKeyFields<
   T extends Entity<any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>
@@ -75,6 +143,14 @@ export type InferGlobalIndexHashKeyFields<
       >
     : {}
 
+/**
+ * Infers the subset of entity fields required for a specific global index range key.
+ *
+ * Returns an empty object if the index has no range key.
+ *
+ * @template T - The Entity type
+ * @template TIndexName - The name of the global index
+ */
 export type InferGlobalIndexRangeKeyFields<
   T extends Entity<any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>
@@ -90,6 +166,14 @@ export type InferGlobalIndexRangeKeyFields<
       : {}
     : {}
 
+/**
+ * Infers the combined subset of entity fields required for a specific global index.
+ *
+ * Combines both hash key and range key fields for the index.
+ *
+ * @template T - The Entity type
+ * @template TIndexName - The name of the global index
+ */
 export type InferGlobalIndexKeyFields<
   T extends Entity<any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>

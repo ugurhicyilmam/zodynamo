@@ -1,7 +1,15 @@
 import { Entity } from '../../types/Entity'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
-import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
+import { QueryKeyTypes, QueryOutputMode, QueryState, SortKeyOperations } from './types'
+
+export type PrimaryQuery<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Output extends QueryOutputMode<E> = 'entity',
+  State extends QueryState = 'INITIAL'
+> = E['table']['primaryIndex']['rangeKey'] extends string
+  ? PrimaryQueryBuilder<E, Output, State>
+  : Omit<PrimaryQueryBuilder<E, Output, State>, SortKeyOperations>
 
 /**
  * Builds a query for the Primary Index of a table.
@@ -10,7 +18,7 @@ import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
  * @template Output - The configured output format.
  * @template State - The current state of the builder (enforces partition key requirement).
  */
-export class PrimaryQuery<
+export class PrimaryQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'

@@ -180,6 +180,8 @@ describe('Query DSL Type Validations', () => {
     // @ts-expect-error - sortBeginsWith not allowed on hash-only table
     q.primary().sortBeginsWith('foo')
 
+    q.primary().partitionFrom({ id: '123' }).limit(1).partitionValue('USER#123').exec()
+
     // LSI query should disallowed entirely (no local indexes)
     // @ts-expect-error - No LSI defined
     q.lsi('any')

@@ -25,6 +25,15 @@ export type QueryOutputMode<E extends Entity<any, any, any, any, any, any, any, 
   | { select: readonly (keyof InferEntity<E>)[] }
   | 'count'
 
+export type SortKeyOperations =
+  | 'sortEquals'
+  | 'sortBeginsWith'
+  | 'sortBetween'
+  | 'sortGreaterThan'
+  | 'sortGreaterThanOrEqualTo'
+  | 'sortLessThan'
+  | 'sortLessThanOrEqualTo'
+
 /**
  * Helper to resolve the partition and sort key types for a given entity and index.
  * This will be used by the builder to strictly type `.partitionValue(val)` and sort ops.

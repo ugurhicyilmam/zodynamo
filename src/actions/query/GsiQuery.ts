@@ -2,7 +2,16 @@ import { Entity } from '../../types/Entity'
 import { GlobalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
-import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
+import { QueryKeyTypes, QueryOutputMode, QueryState, SortKeyOperations } from './types'
+
+export type GsiQuery<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  IndexName extends GlobalIndexName<E['table']>,
+  Output extends QueryOutputMode<E> = 'entity',
+  State extends QueryState = 'INITIAL'
+> = NonNullable<E['globalIndexes']>[IndexName]['rangeKey'] extends { calculate: any }
+  ? GsiQueryBuilder<E, IndexName, Output, State>
+  : Omit<GsiQueryBuilder<E, IndexName, Output, State>, SortKeyOperations>
 
 /**
  * Builds a query for a Global Secondary Index (GSI) of a table.
@@ -12,7 +21,7 @@ import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
  * @template Output - The configured output format.
  * @template State - The current state of the builder (enforces partition key requirement).
  */
-export class GsiQuery<
+export class GsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',

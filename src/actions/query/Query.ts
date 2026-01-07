@@ -1,8 +1,8 @@
 import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
-import { GsiQuery } from './GsiQuery'
+import { GsiQuery, GsiQueryBuilder } from './GsiQuery'
 import { LsiQuery } from './LsiQuery'
-import { PrimaryQuery } from './PrimaryQuery'
+import { PrimaryQuery, PrimaryQueryBuilder } from './PrimaryQuery'
 
 /**
  * Entry point for building queries on an Entity.
@@ -31,7 +31,7 @@ export class QueryEntitySelector<E extends Entity<any, any, any, any, any, any, 
    * Query the table's Primary Index (Partition Key + Optional Sort Key).
    */
   primary(): PrimaryQuery<E> {
-    return new PrimaryQuery(this.entity)
+    return new PrimaryQueryBuilder(this.entity) as any
   }
 
   /**
@@ -40,7 +40,7 @@ export class QueryEntitySelector<E extends Entity<any, any, any, any, any, any, 
    * @param indexName - The name of the GSI to query.
    */
   gsi<N extends GlobalIndexName<E['table']>>(indexName: N): GsiQuery<E, N> {
-    return new GsiQuery(this.entity, indexName)
+    return new GsiQueryBuilder(this.entity, indexName) as any
   }
 
   /**

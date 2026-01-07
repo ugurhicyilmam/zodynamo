@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { InferDynamoItem } from '~/types/InferDynamoItem'
 import { InferEntity } from '~/types/InferEntity'
+import { InferHashKeyFields, InferKeyFields, InferRangeKeyFields } from '~/types/InferEntityKeyFields'
 
 import { defineEntity } from '../src/functions/defineEntity'
 import { defineTable } from '../src/functions/defineTable'
@@ -263,6 +264,25 @@ describe('defineEntity', () => {
       },
       entityType: 'USER'
     })
+
+    type HashFields = InferHashKeyFields<typeof entity>
+    type RangeFields = InferRangeKeyFields<typeof entity>
+    type AllFields = InferKeyFields<typeof entity>
+
+    expectTypeOf({} as HashFields).toEqualTypeOf<{ id: string; address: { street: string } }>()
+    expectTypeOf({} as RangeFields).toEqualTypeOf<{ }>()
+    expectTypeOf({} as AllFields).toEqualTypeOf<{ id: string; address: { street: string } }>()
+
+    const hashOk: HashFields = { id: '1', address: { street: 'Main' } }
+    const rangeOk: RangeFields = {}
+    const allOk: AllFields = { id: '1', address: { street: 'Main' } }
+
+    // @ts-expect-error - missing nested field
+    const hashErr: HashFields = { id: '1' }
+
+    expect(hashOk).toBeDefined()
+    expect(rangeOk).toBeDefined()
+    expect(allOk).toBeDefined()
 
     expect(entity.key.hashKey.calculate({ id: '1', address: { street: 'Main' } })).toEqual('USER#1#Main')
 

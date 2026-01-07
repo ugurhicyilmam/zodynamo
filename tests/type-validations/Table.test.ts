@@ -1,8 +1,8 @@
 import { describe, expectTypeOf, it } from 'vitest'
 
-import { defineTable } from '../src/functions/defineTable'
+import { defineTable } from '../../src/functions/defineTable'
 
-describe('defineTable types', () => {
+describe('Table types', () => {
   it('should infer types correctly for valid configuration', () => {
     const table = defineTable({
       name: 'MyTable',

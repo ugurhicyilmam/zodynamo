@@ -130,8 +130,45 @@ describe('defineEntity', () => {
       }
     })
 
-    expect(entity.localIndexes?.LSI1.rangeKey.calculate({ createdAt: '1' })).toEqual(
-      'CREATED#1'
-    )
+    expect(entity.localIndexes?.LSI1.rangeKey.calculate({ createdAt: '1' })).toEqual('CREATED#1')
+  })
+  test('entity with global secondary index', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string', sk: 'string', gsi1pk: 'string', gsi1sk: 'number' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      globalIndexes: {
+        GSI1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' }
+      }
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string(), score: z.number() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        },
+        rangeKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `PROFILE#${id}`
+        }
+      },
+      globalIndexes: {
+        GSI1: {
+          hashKey: {
+            fields: ['id'],
+            calculate: ({ id }) => `USER#${id}`
+          },
+          rangeKey: {
+            fields: ['score'],
+            calculate: ({ score }) => score
+          }
+        }
+      }
+    })
+    expect(entity.globalIndexes.GSI1.hashKey.calculate({ id: '1', score: 0 })).toEqual('USER#1')
+    expect(entity.globalIndexes.GSI1.rangeKey.calculate({ score: 10, id: '1' })).toEqual(10)
   })
 })

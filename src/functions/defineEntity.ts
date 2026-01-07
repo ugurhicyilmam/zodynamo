@@ -25,8 +25,10 @@ type KeyPartDefinition<
   calculate: (item: PickByPaths<z.infer<TSchema>, TKeyFields[number]>) => TResult
 }
 
-type EntityTypeOption<TTable extends Table<any>, TEntityType extends string | undefined> =
-  TTable extends { entityTypeField: string } ? Exclude<TEntityType, undefined> : never
+type EntityTypeOption<
+  TTable extends Table<any>,
+  TEntityType extends string | undefined
+> = TTable extends { entityTypeField: string } ? Exclude<TEntityType, undefined> : never
 
 type EntityKeyDefinition<
   TTable extends Table<any>,
@@ -39,10 +41,9 @@ type EntityKeyDefinition<
   ? { rangeKey: KeyPartDefinition<TSchema, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
   : { rangeKey?: never })
 
-type EntityLocalIndexRangeKeyFields<
-  TTable extends Table<any>,
-  TSchema extends ZodSchema
-> = Partial<Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>>
+type EntityLocalIndexRangeKeyFields<TTable extends Table<any>, TSchema extends ZodSchema> = Partial<
+  Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+>
 
 export function defineEntity<
   TTable extends Table<any>,
@@ -51,10 +52,7 @@ export function defineEntity<
   const THashKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
   const TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[] = [],
   const TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>> = {},
-  const TLocalIndexRangeKeyFields extends EntityLocalIndexRangeKeyFields<
-    TTable,
-    TSchema
-  > = {},
+  const TLocalIndexRangeKeyFields extends EntityLocalIndexRangeKeyFields<TTable, TSchema> = {},
   const TEntityType extends string | undefined = undefined
 >(
   table: TTable,
@@ -71,16 +69,22 @@ export function defineEntity<
     (LocalIndexName<TTable> extends never
       ? { localIndexes?: never }
       : { localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields> })
-): Entity<
-  TTable,
-  TName,
-  TSchema,
-  THashKeyFields,
-  TRangeKeyFields,
-  TGlobalIndexes,
-  TLocalIndexRangeKeyFields,
-  TEntityType
-> {
+): Omit<
+  Entity<
+    TTable,
+    TName,
+    TSchema,
+    THashKeyFields,
+    TRangeKeyFields,
+    TGlobalIndexes,
+    TLocalIndexRangeKeyFields,
+    TEntityType
+  >,
+  'globalIndexes'
+> &
+  ([keyof TGlobalIndexes] extends [never]
+    ? { globalIndexes?: never }
+    : { globalIndexes: TGlobalIndexes }) {
   return {
     table,
     name: options.name,
@@ -89,5 +93,5 @@ export function defineEntity<
     globalIndexes: options.globalIndexes,
     localIndexes: options.localIndexes,
     entityType: options.entityType
-  }
+  } as any
 }

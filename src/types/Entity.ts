@@ -1,16 +1,16 @@
 import { ZodSchema, z } from 'zod'
 
-import { Table } from './Table'
 import {
-  EntityHashKeyValue,
   EntityGlobalIndexHashKeyValue,
   EntityGlobalIndexRangeKeyValue,
+  EntityHashKeyValue,
   EntityLocalIndexRangeKeyValue,
   EntityRangeKeyValue,
   GlobalIndexName,
   LocalIndexName
 } from './EntityKey'
 import { FieldPath, PickByPaths } from './FieldPath'
+import { Table } from './Table'
 
 type KeyPartDefinition<
   TSchema extends ZodSchema,
@@ -37,10 +37,7 @@ export type EntityLocalIndexesDefinition<
   }
 }
 
-export type EntityGlobalIndexesDefinition<
-  TTable extends Table<any>,
-  TSchema extends ZodSchema
-> = {
+export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema extends ZodSchema> = {
   [K in GlobalIndexName<TTable>]?: {
     hashKey: KeyPartDefinition<
       TSchema,
@@ -66,9 +63,10 @@ type EntityLocalIndexesOption<
   TLocalIndexRangeKeyFields extends Partial<
     Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
   >
-> = LocalIndexName<TTable> extends never
-  ? never
-  : EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
+> =
+  LocalIndexName<TTable> extends never
+    ? never
+    : EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
 
 /**
  * Represents a strictly typed entity bound to a specific DynamoDB table.

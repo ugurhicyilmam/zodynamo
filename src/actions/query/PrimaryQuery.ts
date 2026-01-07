@@ -1,15 +1,36 @@
 import { Entity } from '../../types/Entity'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
-import { QueryKeyTypes, QueryOutputMode, QueryState, SortKeyOperations } from './types'
+import {
+  PartitionKeyOperations,
+  QueryKeyTypes,
+  QueryOptionsOperations,
+  QueryOutputMode,
+  QueryState,
+  SortKeyOperations
+} from './types'
 
-export type PrimaryQuery<
+type BasePrimaryQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'
 > = E['table']['primaryIndex']['rangeKey'] extends string
   ? PrimaryQueryBuilder<E, Output, State>
   : Omit<PrimaryQueryBuilder<E, Output, State>, SortKeyOperations>
+
+export type PrimaryQuery<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Output extends QueryOutputMode<E> = 'entity',
+  State extends QueryState = 'INITIAL'
+> = State extends 'INITIAL'
+  ? Omit<BasePrimaryQuery<E, Output, State>, SortKeyOperations | 'exec' | QueryOptionsOperations>
+  : State extends 'PARTITION_SET'
+    ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations>
+    : State extends 'SORT_SET'
+      ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations | SortKeyOperations>
+      : State extends 'OPTIONS_SET'
+        ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations | SortKeyOperations>
+        : never
 
 /**
  * Builds a query for the Primary Index of a table.
@@ -70,7 +91,9 @@ export class PrimaryQueryBuilder<
    */
   sortEquals(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -82,7 +105,9 @@ export class PrimaryQueryBuilder<
    */
   sortBeginsWith(
     val: E['table']['primaryIndex']['rangeKey'] extends string ? string : never
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -96,7 +121,9 @@ export class PrimaryQueryBuilder<
   sortBetween(
     min: QueryKeyTypes<E, { kind: 'primary' }>['sk'],
     max: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -108,7 +135,9 @@ export class PrimaryQueryBuilder<
    */
   sortGreaterThan(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -120,7 +149,9 @@ export class PrimaryQueryBuilder<
    */
   sortGreaterThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -132,7 +163,9 @@ export class PrimaryQueryBuilder<
    */
   sortLessThan(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -144,7 +177,9 @@ export class PrimaryQueryBuilder<
    */
   sortLessThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
-  ): E['table']['primaryIndex']['rangeKey'] extends string ? this : never {
+  ): E['table']['primaryIndex']['rangeKey'] extends string
+    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    : never {
     return this as any
   }
 
@@ -155,8 +190,8 @@ export class PrimaryQueryBuilder<
    *
    * @param enabled - Whether to use strongly consistent reads. Defaults to true.
    */
-  consistentRead(enabled: boolean = true): this {
-    return this
+  consistentRead(enabled: boolean = true): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
@@ -164,8 +199,8 @@ export class PrimaryQueryBuilder<
    *
    * @param limit - The maximum number of items.
    */
-  limit(limit: number): this {
-    return this
+  limit(limit: number): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
@@ -173,15 +208,15 @@ export class PrimaryQueryBuilder<
    *
    * @param key - The LastEvaluatedKey from a previous response.
    */
-  startKey(key: Record<string, any>): this {
-    return this
+  startKey(key: Record<string, any>): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
    * Switches the output mode to 'raw'.
    * The query will return raw DynamoDB items (no typings/transformations applied).
    */
-  raw(): PrimaryQuery<E, 'raw', State> {
+  raw(): PrimaryQuery<E, 'raw', 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -192,7 +227,7 @@ export class PrimaryQueryBuilder<
    */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): PrimaryQuery<E, { select: readonly K[] }, State> {
+  ): PrimaryQuery<E, { select: readonly K[] }, 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -200,7 +235,7 @@ export class PrimaryQueryBuilder<
    * Switches the output mode to 'count'.
    * The query will return the count of items matching the condition.
    */
-  count(): PrimaryQuery<E, 'count', State> {
+  count(): PrimaryQuery<E, 'count', 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -210,7 +245,10 @@ export class PrimaryQueryBuilder<
    * @returns A promise resolving to the results based on the output mode.
    */
   exec(
-    this: PrimaryQuery<E, Output, 'PARTITION_SET'>
+    this:
+      | PrimaryQuery<E, Output, 'PARTITION_SET'>
+      | PrimaryQuery<E, Output, 'SORT_SET'>
+      | PrimaryQuery<E, Output, 'OPTIONS_SET'>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

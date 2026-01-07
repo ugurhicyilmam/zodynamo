@@ -10,7 +10,7 @@ export type QueryIndexSelector<E extends Entity<any, any, any, any, any, any, an
   | { kind: 'gsi'; name: GlobalIndexName<E['table']> }
   | { kind: 'lsi'; name: LocalIndexName<E['table']> }
 
-export type QueryState = 'INITIAL' | 'PARTITION_SET'
+export type QueryState = 'INITIAL' | 'PARTITION_SET' | 'SORT_SET' | 'OPTIONS_SET'
 
 /**
  * Defines the output shape of the query.
@@ -33,6 +33,16 @@ export type SortKeyOperations =
   | 'sortGreaterThanOrEqualTo'
   | 'sortLessThan'
   | 'sortLessThanOrEqualTo'
+
+export type PartitionKeyOperations = 'partitionFrom' | 'partitionValue'
+
+export type QueryOptionsOperations =
+  | 'limit'
+  | 'consistentRead'
+  | 'startKey'
+  | 'raw'
+  | 'select'
+  | 'count'
 
 /**
  * Helper to resolve the partition and sort key types for a given entity and index.

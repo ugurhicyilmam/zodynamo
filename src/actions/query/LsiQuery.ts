@@ -2,7 +2,38 @@ import { Entity } from '../../types/Entity'
 import { LocalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
-import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
+import {
+  PartitionKeyOperations,
+  QueryKeyTypes,
+  QueryOptionsOperations,
+  QueryOutputMode,
+  QueryState,
+  SortKeyOperations
+} from './types'
+
+export type LsiQuery<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  IndexName extends LocalIndexName<E['table']>,
+  Output extends QueryOutputMode<E> = 'entity',
+  State extends QueryState = 'INITIAL'
+> = State extends 'INITIAL'
+  ? Omit<
+      LsiQueryBuilder<E, IndexName, Output, State>,
+      SortKeyOperations | 'exec' | QueryOptionsOperations
+    >
+  : State extends 'PARTITION_SET'
+    ? Omit<LsiQueryBuilder<E, IndexName, Output, State>, PartitionKeyOperations>
+    : State extends 'SORT_SET'
+      ? Omit<
+          LsiQueryBuilder<E, IndexName, Output, State>,
+          PartitionKeyOperations | SortKeyOperations
+        >
+      : State extends 'OPTIONS_SET'
+        ? Omit<
+            LsiQueryBuilder<E, IndexName, Output, State>,
+            PartitionKeyOperations | SortKeyOperations
+          >
+        : never
 
 /**
  * Builds a query for a Local Secondary Index (LSI) of a table.
@@ -12,7 +43,7 @@ import { QueryKeyTypes, QueryOutputMode, QueryState } from './types'
  * @template Output - The configured output format.
  * @template State - The current state of the builder (enforces partition key requirement).
  */
-export class LsiQuery<
+export class LsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
@@ -64,8 +95,10 @@ export class LsiQuery<
    *
    * @param val - The value to match.
    */
-  sortEquals(val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']): this {
-    return this
+  sortEquals(
+    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -76,8 +109,8 @@ export class LsiQuery<
    */
   sortBeginsWith(
     val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'] extends string ? string : never
-  ): this {
-    return this
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -89,8 +122,8 @@ export class LsiQuery<
   sortBetween(
     min: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'],
     max: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): this {
-    return this
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -98,8 +131,10 @@ export class LsiQuery<
    *
    * @param val - The value to compare against.
    */
-  sortGreaterThan(val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']): this {
-    return this
+  sortGreaterThan(
+    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -107,8 +142,10 @@ export class LsiQuery<
    *
    * @param val - The value to compare against.
    */
-  sortGreaterThanOrEqualTo(val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']): this {
-    return this
+  sortGreaterThanOrEqualTo(
+    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -116,8 +153,10 @@ export class LsiQuery<
    *
    * @param val - The value to compare against.
    */
-  sortLessThan(val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']): this {
-    return this
+  sortLessThan(
+    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /**
@@ -125,8 +164,10 @@ export class LsiQuery<
    *
    * @param val - The value to compare against.
    */
-  sortLessThanOrEqualTo(val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']): this {
-    return this
+  sortLessThanOrEqualTo(
+    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+    return this as any
   }
 
   /* Modifiers */
@@ -136,8 +177,8 @@ export class LsiQuery<
    *
    * @param enabled - Whether to use strongly consistent reads. Defaults to true.
    */
-  consistentRead(enabled: boolean = true): this {
-    return this
+  consistentRead(enabled: boolean = true): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
@@ -145,8 +186,8 @@ export class LsiQuery<
    *
    * @param limit - The maximum number of items.
    */
-  limit(limit: number): this {
-    return this
+  limit(limit: number): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
@@ -154,15 +195,15 @@ export class LsiQuery<
    *
    * @param key - The LastEvaluatedKey from a previous response.
    */
-  startKey(key: Record<string, any>): this {
-    return this
+  startKey(key: Record<string, any>): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+    return this as any
   }
 
   /**
    * Switches the output mode to 'raw'.
    * The query will return raw DynamoDB items.
    */
-  raw(): LsiQuery<E, IndexName, 'raw', State> {
+  raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -173,7 +214,7 @@ export class LsiQuery<
    */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): LsiQuery<E, IndexName, { select: readonly K[] }, State> {
+  ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -181,7 +222,7 @@ export class LsiQuery<
    * Switches the output mode to 'count'.
    * The query will return the count of items matching the condition.
    */
-  count(): LsiQuery<E, IndexName, 'count', State> {
+  count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET'> {
     return this as any
   }
 
@@ -191,7 +232,10 @@ export class LsiQuery<
    * @returns A promise resolving to the results based on the output mode.
    */
   exec(
-    this: LsiQuery<E, IndexName, Output, 'PARTITION_SET'>
+    this:
+      | LsiQuery<E, IndexName, Output, 'PARTITION_SET'>
+      | LsiQuery<E, IndexName, Output, 'SORT_SET'>
+      | LsiQuery<E, IndexName, Output, 'OPTIONS_SET'>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

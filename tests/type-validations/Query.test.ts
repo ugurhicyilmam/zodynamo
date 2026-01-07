@@ -111,11 +111,26 @@ describe('Query DSL Type Validations', () => {
     // @ts-expect-error - exec not allowed before partition key
     query.primary().exec()
 
+    // @ts-expect-error - Options not allowed before partition key
+    query.primary().limit(1)
+
     // @ts-expect-error - exec not allowed before partition key (even with other methods)
     query.primary().consistentRead().exec()
 
     // Valid with partitionValue
     query.primary().partitionValue('USER#123').exec()
+
+    // Valid with options
+    query.primary().partitionValue('USER#123').consistentRead().limit(10).exec()
+
+    // Valid with sort and options
+    query.primary().partitionValue('USER#123').sortBeginsWith('EMAIL').limit(5).exec()
+
+    // @ts-expect-error - Cannot apply sort after options
+    query.primary().partitionValue('USER#123').limit(5).sortBeginsWith('EMAIL')
+
+    // @ts-expect-error - Cannot apply two sort operations
+    query.primary().partitionValue('USER#123').sortBeginsWith('A').sortBeginsWith('B')
   })
 
   test('GSI Query', () => {
@@ -124,6 +139,9 @@ describe('Query DSL Type Validations', () => {
 
     // @ts-expect-error - exec not allowed before partition key
     query.gsi('GSI1').exec()
+
+    // @ts-expect-error - Options not allowed before partition key
+    query.gsi('GSI1').limit(1)
 
     // @ts-expect-error - consistentRead not allowed on GSI
     query.gsi('GSI1').consistentRead()
@@ -141,6 +159,9 @@ describe('Query DSL Type Validations', () => {
 
     // @ts-expect-error - exec not allowed before partition key
     query.lsi('LSI1').exec()
+
+    // @ts-expect-error - Options not allowed before partition key
+    query.lsi('LSI1').limit(1)
 
     // @ts-expect-error - sort ops restricted to LSI sort key type (number vs string)
     query.lsi('LSI1').sortBeginsWith('foo')
@@ -180,7 +201,13 @@ describe('Query DSL Type Validations', () => {
     // @ts-expect-error - sortBeginsWith not allowed on hash-only table
     q.primary().sortBeginsWith('foo')
 
+    // @ts-expect-error - partitionValue not allowed after state transition (even with limit/modifiers)
     q.primary().partitionFrom({ id: '123' }).limit(1).partitionValue('USER#123').exec()
+
+    // @ts-expect-error - sortBeginsWith not allowed on hash-only table (even after modifiers)
+    q.primary().partitionFrom({ id: '123' }).limit(1).sortBeginsWith('foo')
+
+    q.primary().partitionValue('asd').limit(3).limit(5)
 
     // LSI query should disallowed entirely (no local indexes)
     // @ts-expect-error - No LSI defined

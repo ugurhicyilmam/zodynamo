@@ -1,7 +1,7 @@
 import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
 import { GsiQuery, GsiQueryBuilder } from './GsiQuery'
-import { LsiQuery } from './LsiQuery'
+import { LsiQuery, LsiQueryBuilder } from './LsiQuery'
 import { PrimaryQuery, PrimaryQueryBuilder } from './PrimaryQuery'
 
 /**
@@ -49,6 +49,6 @@ export class QueryEntitySelector<E extends Entity<any, any, any, any, any, any, 
    * @param indexName - The name of the LSI to query.
    */
   lsi<N extends LocalIndexName<E['table']>>(indexName: N): LsiQuery<E, N> {
-    return new LsiQuery(this.entity, indexName)
+    return new LsiQueryBuilder(this.entity, indexName) as any
   }
 }

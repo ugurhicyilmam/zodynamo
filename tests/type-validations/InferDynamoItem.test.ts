@@ -51,6 +51,159 @@ describe('InferDynamoItem', () => {
     const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
   })
 
+  test('infers internal dynamo item type correctly for index fields', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: {
+        pk: 'string',
+        sk: 'string',
+        type: 'string',
+        expireAt: 'number',
+        GSI1pk: 'string',
+        GSI1sk: 'string'
+      },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      globalIndexes: {
+        GSI1: { hashKey: 'GSI1pk', rangeKey: 'GSI1sk' }
+      },
+      localIndexes: {
+        LSI1: { rangeKey: 'sk' }
+      },
+      entityTypeField: 'type',
+      ttl: 'expireAt'
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string(), name: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: value => `USER#${value.id}`
+        },
+        rangeKey: {
+          fields: [],
+          calculate: () => 'PROFILE'
+        }
+      },
+      globalIndexes: {
+        GSI1: {
+          hashKey: {
+            fields: ['id'],
+            calculate: value => `USER#${value.id}`
+          },
+          rangeKey: {
+            fields: [],
+            calculate: () => 'PROFILE'
+          }
+        }
+      },
+      entityType: 'USER',
+      ttl: domain => (domain.name.length > 5 ? 3600 : 3800)
+    })
+
+    type Internal = InferDynamoItem<typeof entity>
+
+    expect(true).toBe(true)
+
+    const int: Internal = {
+      id: '1',
+      name: 'Alice',
+      pk: 'USER#1',
+      sk: 'PROFILE',
+      type: 'USER',
+      expireAt: 123,
+      GSI1pk: 'USER#1',
+      GSI1sk: 'PROFILE'
+    }
+
+    // @ts-expect-error - missing pk
+    const intErr: Internal = { id: '1', name: 'Alice', sk: 'PROFILE', type: 'USER' }
+    // @ts-expect-error - missing discriminator
+    const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
+    // @ts-expect-error - missing GSI1pk
+    const intErr3: Internal = {
+      id: '1',
+      name: 'Alice',
+      pk: 'USER#1',
+      sk: 'PROFILE',
+      type: 'USER',
+      expireAt: 123,
+      GSI1sk: 'PROFILE'
+    }
+    // @ts-expect-error - missing GSI1sk
+    const intErr4: Internal = {
+      id: '1',
+      name: 'Alice',
+      pk: 'USER#1',
+      sk: 'PROFILE',
+      type: 'USER',
+      expireAt: 123,
+      GSI1pk: 'USER#1'
+    }
+  })
+
+  test('infers internal dynamo item type correctly for local index fields', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: {
+        pk: 'string',
+        sk: 'string',
+        type: 'string',
+        LSI1sk: 'string'
+      },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      localIndexes: {
+        LSI1: { rangeKey: 'LSI1sk' }
+      },
+      entityTypeField: 'type'
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string(), name: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: value => `USER#${value.id}`
+        },
+        rangeKey: {
+          fields: [],
+          calculate: () => 'PROFILE'
+        }
+      },
+      localIndexes: {
+        LSI1: {
+          rangeKey: {
+            fields: ['name'],
+            calculate: value => value.name
+          }
+        }
+      },
+      entityType: 'USER'
+    })
+
+    type Internal = InferDynamoItem<typeof entity>
+
+    const int: Internal = {
+      id: '1',
+      name: 'Alice',
+      pk: 'USER#1',
+      sk: 'PROFILE',
+      type: 'USER',
+      LSI1sk: 'Alice'
+    }
+
+    // @ts-expect-error - missing LSI1sk
+    const intErr: Internal = {
+      id: '1',
+      name: 'Alice',
+      pk: 'USER#1',
+      sk: 'PROFILE',
+      type: 'USER'
+    }
+  })
+
   test('uses ttl callback return type for ttl field', () => {
     const table = defineTable({
       name: 'TestTable',

@@ -19,13 +19,15 @@ describe('defineEntity', () => {
       name: 'User',
       schema: z.object({ id: z.string(), name: z.string() }),
       key: {
-        fields: ['id'],
-        calculate: ({ id }) => ({ pk: `USER#${id}` })
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
       }
     })
 
     expect(entity.name).toBe('User')
-    expect(entity.key.calculate({ id: '123' })).toEqual({ pk: 'USER#123' })
+    expect(entity.key.hashKey.calculate({ id: '123' })).toEqual('USER#123')
   })
 
   test('entity with hash and range key', () => {
@@ -39,18 +41,19 @@ describe('defineEntity', () => {
       name: 'Comment',
       schema: z.object({ postId: z.string(), commentId: z.string(), age: z.number() }),
       key: {
-        fields: ['postId', 'commentId'],
-        calculate: fields => ({
-          pk: `POST#${fields.postId}`,
-          sk: `COMMENT#${fields.commentId}`
-        })
+        hashKey: {
+          fields: ['postId'],
+          calculate: ({ postId }) => `POST#${postId}`
+        },
+        rangeKey: {
+          fields: ['commentId'],
+          calculate: ({ commentId }) => `COMMENT#${commentId}`
+        }
       }
     })
 
-    expect(entity.key.calculate({ postId: '1', commentId: '2' })).toEqual({
-      pk: 'POST#1',
-      sk: 'COMMENT#2'
-    })
+    expect(entity.key.hashKey.calculate({ postId: '1' })).toEqual('POST#1')
+    expect(entity.key.rangeKey.calculate({ commentId: '2' })).toEqual('COMMENT#2')
   })
 
   test('entity with numeric key', () => {
@@ -64,12 +67,14 @@ describe('defineEntity', () => {
       name: 'Score',
       schema: z.object({ id: z.string(), score: z.number() }),
       key: {
-        fields: ['score'],
-        calculate: ({ score }) => ({ pk: score })
+        hashKey: {
+          fields: ['score'],
+          calculate: ({ score }) => score
+        }
       }
     })
 
-    expect(entity.key.calculate({ score: 100 })).toEqual({ pk: 100 })
+    expect(entity.key.hashKey.calculate({ score: 100 })).toEqual(100)
   })
 
   test('requires entityType when configured on table', () => {
@@ -84,8 +89,10 @@ describe('defineEntity', () => {
       name: 'User',
       schema: z.object({ id: z.string() }),
       key: {
-        fields: ['id'],
-        calculate: ({ id }) => ({ pk: `USER#${id}` })
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
       },
       entityType: 'USER'
     })
@@ -104,8 +111,10 @@ describe('defineEntity', () => {
       name: 'User',
       schema: z.object({ id: z.string() }),
       key: {
-        fields: ['id'],
-        calculate: ({ id }) => ({ pk: `USER#${id}` })
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
       },
       // @ts-expect-error
       entityType: 'USER'
@@ -125,12 +134,56 @@ describe('defineEntity', () => {
       name: 'User',
       schema: z.object({ id: z.string() }),
       key: {
-        fields: ['id'],
-        calculate: ({ id }) =>
-          // @ts-expect-error - missing pk
-          ({
-            wrongKey: id
-          })
+        hashKey: {
+          fields: ['id'],
+          calculate: () =>
+            // @ts-expect-error - must return string pk
+            123
+        }
+      }
+    })
+  })
+
+  test('requires rangeKey definition when table has range key', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string', sk: 'string' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' }
+    })
+
+    defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string() }),
+      // @ts-expect-error - rangeKey required for this table
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
+      }
+    })
+  })
+
+  test('forbids rangeKey definition when table has no range key', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        },
+        // @ts-expect-error - no rangeKey on this table
+        rangeKey: {
+          fields: ['id'],
+          calculate: (item: { id: string }) => `USER#${item.id}`
+        }
       }
     })
   })
@@ -147,8 +200,14 @@ describe('defineEntity', () => {
       name: 'User',
       schema: z.object({ id: z.string(), name: z.string() }),
       key: {
-        fields: ['id'],
-        calculate: ({ id }) => ({ pk: `USER#${id}`, sk: 'PROFILE' })
+        hashKey: {
+          fields: ['id'],
+          calculate: value => `USER#${value.id}`
+        },
+        rangeKey: {
+          fields: [],
+          calculate: () => 'PROFILE'
+        }
       },
       entityType: 'USER'
     })

@@ -1,6 +1,16 @@
 import { ZodSchema, z } from 'zod'
 
 import { Table } from './Table'
+import { EntityHashKeyValue, EntityRangeKeyValue } from './EntityKey'
+
+type KeyPartDefinition<
+  TSchema extends ZodSchema,
+  TKeyFields extends readonly (keyof z.infer<TSchema>)[],
+  TResult
+> = {
+  fields: TKeyFields
+  calculate: (item: Pick<z.infer<TSchema>, TKeyFields[number]>) => TResult
+}
 
 /**
  * Represents a strictly typed entity bound to a specific DynamoDB table.
@@ -14,15 +24,17 @@ export interface Entity<
   TTable extends Table<any>,
   TName extends string,
   TSchema extends ZodSchema,
-  TKeyFields extends readonly (keyof z.infer<TSchema>)[],
+  THashKeyFields extends readonly (keyof z.infer<TSchema>)[],
+  TRangeKeyFields extends readonly (keyof z.infer<TSchema>)[],
   TEntityType extends string | undefined
 > {
   name: TName
   table: TTable
   schema: TSchema
   key: {
-    fields: TKeyFields
-    calculate: (item: Pick<z.infer<TSchema>, TKeyFields[number]>) => any
-  }
+    hashKey: KeyPartDefinition<TSchema, THashKeyFields, EntityHashKeyValue<TTable>>
+  } & (TTable['primaryIndex']['rangeKey'] extends string
+    ? { rangeKey: KeyPartDefinition<TSchema, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
+    : { rangeKey?: never })
   entityType?: TEntityType
 }

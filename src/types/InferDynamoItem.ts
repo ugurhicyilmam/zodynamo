@@ -5,7 +5,7 @@ type Prettify<T> = {
   [K in keyof T]: T[K]
 } & {}
 
-export type InferDynamoItem<T extends Entity<any, any, any, any, any>> = Prettify<
+export type InferDynamoItem<T extends Entity<any, any, any, any, any, any>> = Prettify<
   InferEntity<T> &
     (T['table']['primaryIndex']['rangeKey'] extends string
       ? {

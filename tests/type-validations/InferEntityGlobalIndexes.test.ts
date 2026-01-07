@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -66,11 +66,11 @@ describe('InferEntityGlobalIndexes', () => {
     type Gsi1Fields = InferGlobalIndexKeyFields<typeof entity, 'GSI1'>
     type Gsi2Fields = InferGlobalIndexKeyFields<typeof entity, 'GSI2'>
 
-    expectTypeOf('' as Names).toEqualTypeOf<'GSI1' | 'GSI2'>()
-    expectTypeOf({} as HashFields).toEqualTypeOf<{ id: string }>()
-    expectTypeOf({} as RangeFields).toEqualTypeOf<{ score: number }>()
-    expectTypeOf({} as Gsi1Fields).toEqualTypeOf<{ id: string; score: number }>()
-    expectTypeOf({} as Gsi2Fields).toEqualTypeOf<{ email: string }>()
+    expectTypeOf<Names>().toEqualTypeOf<'GSI1' | 'GSI2'>()
+    expectTypeOf<HashFields>().toEqualTypeOf<{ id: string }>()
+    expectTypeOf<RangeFields>().toEqualTypeOf<{ score: number }>()
+    expectTypeOf<Gsi1Fields>().toEqualTypeOf<{ id: string; score: number }>()
+    expectTypeOf<Gsi2Fields>().toEqualTypeOf<{ email: string }>()
   })
 
   test('infers no global index names when none are defined', () => {
@@ -92,8 +92,6 @@ describe('InferEntityGlobalIndexes', () => {
     })
 
     type Names = InferGlobalIndexNames<typeof entity>
-    // @ts-expect-error - no global indexes configured
-    const nameErr: Names = 'GSI1'
-    expect(nameErr).toBeDefined()
+    expectTypeOf<Names>().toBeNever()
   })
 })

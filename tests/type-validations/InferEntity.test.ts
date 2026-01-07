@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -32,15 +32,9 @@ describe('InferEntity', () => {
 
     type External = InferEntity<typeof entity>
 
-    // runtime check just to satisfy test runner
-    expect(true).toBe(true)
-
-    const ext: External = { id: '1', name: 'Alice' }
-
-    // @ts-expect-error - missing schema field
-    const extErr: External = { id: '1' }
-
-    // @ts-expect-error - extra field
-    const extErr2: External = { id: '1', name: 'Alice', extra: 'field' }
+    expectTypeOf<External>().toEqualTypeOf<{
+      id: string
+      name: string
+    }>()
   })
 })

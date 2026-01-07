@@ -1,4 +1,4 @@
-import { describe, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -23,17 +23,27 @@ describe('Entity transform', () => {
       transform: {
         encode: input => {
           // input should be { id: string, name: string, pk: string, sk: string }
-          const _id: string = input.id
-          const _pk: string = input.pk
+          expectTypeOf(input).toMatchTypeOf<{
+            id: string
+            name: string
+            pk: string
+            sk: string
+          }>()
 
           return {
             ...input,
-            extra: 'internal_field'
+            extra: input.id + input.name
           }
         },
         decode: input => {
           // input is ReturnType of encode
-          const _extra: string = input.extra
+          expectTypeOf(input).toMatchTypeOf<{
+            id: string
+            name: string
+            pk: string
+            sk: string
+            extra: string
+          }>()
           return {
             id: input.id,
             name: input.name
@@ -43,14 +53,14 @@ describe('Entity transform', () => {
     })
 
     type Item = InferDynamoItem<typeof entity>
-    // Should include 'extra'
-    const _check: Item = {
-      id: '1',
-      name: 'Test',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      extra: 'internal_field'
-    }
+
+    expectTypeOf<Item>().toEqualTypeOf<{
+      id: string
+      name: string
+      pk: string
+      sk: string
+      extra: string
+    }>()
   })
 
   test('enforces encode input type', () => {
@@ -137,7 +147,8 @@ describe('Entity transform', () => {
       transform: {
         encode: input => {
           // Should include gsiPk
-          const _gsi: string = input.gsiPk
+          expectTypeOf(input).toHaveProperty('gsiPk')
+          expectTypeOf(input.gsiPk).toBeString()
           return input
         },
         decode: input => ({ id: input.id })

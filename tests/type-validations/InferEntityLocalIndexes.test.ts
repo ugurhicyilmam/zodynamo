@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -59,10 +59,10 @@ describe('InferEntityLocalIndexes', () => {
     type Lsi1Fields = InferLocalIndexRangeKeyFields<typeof entity, 'LSI1'>
     type Lsi2Fields = InferLocalIndexRangeKeyFields<typeof entity, 'LSI2'>
 
-    expectTypeOf('' as Names).toEqualTypeOf<'LSI1' | 'LSI2'>()
-    expectTypeOf({} as Lsi1Fields).toEqualTypeOf<{ createdAt: string }>()
-    expectTypeOf({} as Lsi2Fields).toEqualTypeOf<{ metrics: { score: number } }>()
-    expectTypeOf({} as IndexFields).toEqualTypeOf<{
+    expectTypeOf<Names>().toEqualTypeOf<'LSI1' | 'LSI2'>()
+    expectTypeOf<Lsi1Fields>().toEqualTypeOf<{ createdAt: string }>()
+    expectTypeOf<Lsi2Fields>().toEqualTypeOf<{ metrics: { score: number } }>()
+    expectTypeOf<IndexFields>().toEqualTypeOf<{
       readonly LSI1: {
         createdAt: string
       }
@@ -92,13 +92,7 @@ describe('InferEntityLocalIndexes', () => {
       }
     })
 
-    type Names = InferLocalIndexNames<typeof entity>
-    type IndexFields = InferLocalIndexFields<typeof entity>
-
-    // @ts-expect-error - no local indexes configured
-    const nameErr: Names = 'LSI1'
-    expectTypeOf({} as IndexFields).toEqualTypeOf({})
-
-    expect(nameErr).toBeDefined()
+    expectTypeOf<InferLocalIndexNames<typeof entity>>().toBeNever()
+    expectTypeOf<InferLocalIndexFields<typeof entity>>().toEqualTypeOf<{}>()
   })
 })

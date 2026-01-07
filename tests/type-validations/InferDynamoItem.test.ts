@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -34,21 +34,14 @@ describe('InferDynamoItem', () => {
 
     type Internal = InferDynamoItem<typeof entity>
 
-    expect(true).toBe(true)
-
-    const int: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      type: 'USER',
-      expireAt: 123
-    }
-
-    // @ts-expect-error - missing pk
-    const intErr: Internal = { id: '1', name: 'Alice', sk: 'PROFILE', type: 'USER' }
-    // @ts-expect-error - missing discriminator
-    const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
+    expectTypeOf<Internal>().toEqualTypeOf<{
+      id: string
+      name: string
+      pk: string
+      sk: string
+      type: 'USER'
+      expireAt: number
+    }>()
   })
 
   test('infers internal dynamo item type correctly for index fields', () => {
@@ -104,43 +97,16 @@ describe('InferDynamoItem', () => {
 
     type Internal = InferDynamoItem<typeof entity>
 
-    expect(true).toBe(true)
-
-    const int: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      type: 'USER',
-      expireAt: 123,
-      GSI1pk: 'USER#1',
-      GSI1sk: 'PROFILE'
-    }
-
-    // @ts-expect-error - missing pk
-    const intErr: Internal = { id: '1', name: 'Alice', sk: 'PROFILE', type: 'USER' }
-    // @ts-expect-error - missing discriminator
-    const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
-    // @ts-expect-error - missing GSI1pk
-    const intErr3: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      type: 'USER',
-      expireAt: 123,
-      GSI1sk: 'PROFILE'
-    }
-    // @ts-expect-error - missing GSI1sk
-    const intErr4: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      type: 'USER',
-      expireAt: 123,
-      GSI1pk: 'USER#1'
-    }
+    expectTypeOf<Internal>().toEqualTypeOf<{
+      id: string
+      name: string
+      pk: string
+      sk: string
+      type: 'USER'
+      expireAt: number
+      GSI1pk: string
+      GSI1sk: string
+    }>()
   })
 
   test('infers internal dynamo item type correctly for local index fields', () => {
@@ -185,23 +151,14 @@ describe('InferDynamoItem', () => {
 
     type Internal = InferDynamoItem<typeof entity>
 
-    const int: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
-      type: 'USER',
-      LSI1sk: 'Alice'
-    }
-
-    // @ts-expect-error - missing LSI1sk
-    const intErr: Internal = {
-      id: '1',
-      name: 'Alice',
-      pk: 'USER#1',
-      sk: 'PROFILE',
+    expectTypeOf<Internal>().toEqualTypeOf<{
+      id: string
+      name: string
+      pk: string
+      sk: string
       type: 'USER'
-    }
+      LSI1sk: string
+    }>()
   })
 
   test('uses ttl callback return type for ttl field', () => {
@@ -226,9 +183,11 @@ describe('InferDynamoItem', () => {
 
     type NumberOnlyInternal = InferDynamoItem<typeof numberOnly>
 
-    const numberOnlyOk: NumberOnlyInternal = { id: '1', pk: 'NUMBER#1', expireAt: 3600 }
-    // @ts-expect-error - ttl required when return type is number
-    const numberOnlyErr: NumberOnlyInternal = { id: '1', pk: 'NUMBER#1' }
+    expectTypeOf<NumberOnlyInternal>().toEqualTypeOf<{
+      id: string
+      pk: string
+      expireAt: number
+    }>()
 
     const undefinedOnly = defineEntity(table, {
       name: 'UndefinedOnly',
@@ -244,8 +203,10 @@ describe('InferDynamoItem', () => {
 
     type UndefinedOnlyInternal = InferDynamoItem<typeof undefinedOnly>
 
-    const undefinedOnlyOk: UndefinedOnlyInternal = { id: '1', pk: 'UNDEFINED#1' }
-    // @ts-expect-error - ttl cannot be a number when return type is undefined
-    const undefinedOnlyErr: UndefinedOnlyInternal = { id: '1', pk: 'UNDEFINED#1', expireAt: 1 }
+    expectTypeOf<UndefinedOnlyInternal>().toEqualTypeOf<{
+      id: string
+      pk: string
+      expireAt?: undefined
+    }>()
   })
 })

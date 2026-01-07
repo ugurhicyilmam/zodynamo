@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -42,19 +42,8 @@ describe('InferEntityKeyFields', () => {
     type RangeFields = InferRangeKeyFields<typeof entity>
     type AllFields = InferKeyFields<typeof entity>
 
-    expectTypeOf({} as HashFields).toEqualTypeOf<{ id: string; address: { street: string } }>()
-    expectTypeOf({} as RangeFields).toEqualTypeOf<{}>()
-    expectTypeOf({} as AllFields).toEqualTypeOf<{ id: string; address: { street: string } }>()
-
-    const hashOk: HashFields = { id: '1', address: { street: 'Main' } }
-    const rangeOk: RangeFields = {}
-    const allOk: AllFields = { id: '1', address: { street: 'Main' } }
-
-    // @ts-expect-error - missing nested field
-    const hashErr: HashFields = { id: '1' }
-
-    expect(hashOk).toBeDefined()
-    expect(rangeOk).toBeDefined()
-    expect(allOk).toBeDefined()
+    expectTypeOf<HashFields>().toEqualTypeOf<{ id: string; address: { street: string } }>()
+    expectTypeOf<RangeFields>().toEqualTypeOf<{}>()
+    expectTypeOf<AllFields>().toEqualTypeOf<{ id: string; address: { street: string } }>()
   })
 })

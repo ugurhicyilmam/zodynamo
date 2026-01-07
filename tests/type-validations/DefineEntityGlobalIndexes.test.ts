@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -16,7 +16,7 @@ describe('defineEntity globalIndexes typing', () => {
       }
     })
 
-    defineEntity(table, {
+    const entity = defineEntity(table, {
       name: 'User',
       schema: z.object({ id: z.string(), score: z.number(), email: z.string() }),
       key: {
@@ -49,7 +49,9 @@ describe('defineEntity globalIndexes typing', () => {
       }
     })
 
-    expect(true).toBe(true)
+    expectTypeOf(entity.globalIndexes).toBeObject()
+    expectTypeOf(entity.globalIndexes).toHaveProperty('GSI1')
+    expectTypeOf(entity.globalIndexes).toHaveProperty('GSI2')
   })
 
   test('rejects unknown global index names', () => {
@@ -85,8 +87,6 @@ describe('defineEntity globalIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects wrong global index key return types', () => {
@@ -122,8 +122,6 @@ describe('defineEntity globalIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects rangeKey when table index has none', () => {
@@ -163,8 +161,6 @@ describe('defineEntity globalIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects global indexes when table has none', () => {
@@ -193,7 +189,36 @@ describe('defineEntity globalIndexes typing', () => {
         }
       }
     })
+  })
 
-    expect(true).toBe(true)
+  test('rejects global indexes when table requires range key', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' },
+      globalIndexes: {
+        GSI1: { hashKey: 'pk', rangeKey: 'pk' }
+      }
+    })
+
+    defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
+      },
+      globalIndexes: {
+        // @ts-expect-error - GSI1 requires range key
+        GSI1: {
+          hashKey: {
+            fields: ['id'],
+            calculate: ({ id }: { id: string }) => `USER#${id}`
+          }
+        }
+      }
+    })
   })
 })

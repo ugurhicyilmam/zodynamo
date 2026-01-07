@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -15,7 +15,7 @@ describe('defineEntity localIndexes typing', () => {
       }
     })
 
-    defineEntity(table, {
+    const entity = defineEntity(table, {
       name: 'User',
       schema: z.object({ id: z.string(), createdAt: z.number() }),
       key: {
@@ -38,7 +38,9 @@ describe('defineEntity localIndexes typing', () => {
       }
     })
 
-    expect(true).toBe(true)
+    expectTypeOf(entity.localIndexes).not.toBeUndefined()
+    expectTypeOf(entity.localIndexes).exclude(undefined).toBeObject()
+    expectTypeOf(entity.localIndexes).exclude(undefined).toHaveProperty('LSI1')
   })
 
   test('rejects unknown local index names', () => {
@@ -74,8 +76,6 @@ describe('defineEntity localIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects wrong local index key return types', () => {
@@ -111,8 +111,6 @@ describe('defineEntity localIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects local indexes when table has none', () => {
@@ -141,8 +139,6 @@ describe('defineEntity localIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 
   test('rejects local index fields not in schema', () => {
@@ -178,7 +174,5 @@ describe('defineEntity localIndexes typing', () => {
         }
       }
     })
-
-    expect(true).toBe(true)
   })
 })

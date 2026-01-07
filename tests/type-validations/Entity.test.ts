@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
 import { defineEntity } from '../../src/functions/defineEntity'
@@ -25,7 +25,8 @@ describe('Entity types', () => {
       entityType: 'USER'
     })
 
-    expect(entity.entityType).toBe('USER')
+    // Why it can be undefined?
+    expectTypeOf(entity.entityType).toEqualTypeOf<'USER' | undefined>()
   })
 
   test('forbids entityType when NOT configured on table', () => {
@@ -35,7 +36,7 @@ describe('Entity types', () => {
       primaryIndex: { hashKey: 'pk' }
     })
 
-    const entity = defineEntity(table, {
+    defineEntity(table, {
       name: 'User',
       schema: z.object({ id: z.string() }),
       key: {
@@ -47,8 +48,6 @@ describe('Entity types', () => {
       // @ts-expect-error
       entityType: 'USER'
     })
-
-    expect(entity).toBeDefined()
   })
 
   test('enforces strict key return type', () => {

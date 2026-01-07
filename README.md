@@ -49,7 +49,7 @@ dependency is available.
 ### 1) Define a table
 
 ```ts
-import { defineTable, defineGlobalIndex, defineLocalIndex } from 'zodynamo';
+import { defineGlobalIndex, defineLocalIndex, defineTable } from 'zodynamo'
 
 export const DataTable = defineTable()({
   name: 'Data',
@@ -69,19 +69,14 @@ export const DataTable = defineTable()({
   secondaryIndexes: {
     'lsi-1': defineLocalIndex({ key: 'lsi-1-sk', type: 'string' })
   }
-});
+})
 ```
 
 ### 2) Define an entity with keys and indexes
 
 ```ts
-import { z } from 'zod';
-import {
-  asGlobalIndex,
-  asLocalIndex,
-  defineEntity,
-  defineKey
-} from 'zodynamo';
+import { z } from 'zod'
+import { asGlobalIndex, asLocalIndex, defineEntity, defineKey } from 'zodynamo'
 
 export const UserSchema = z.object({
   id: z.string(),
@@ -95,33 +90,33 @@ export const UserSchema = z.object({
     providerName: z.string()
   }),
   isBlocked: z.boolean()
-});
+})
 
 export const UserEntity = defineEntity(DataTable)
   .schema(UserSchema)
   .key({
     hash: defineKey([], () => 'users'),
-    sort: defineKey(['id'], (entity) => `user#${entity.id}`)
+    sort: defineKey(['id'], entity => `user#${entity.id}`)
   })
   .indexes({
-    lastName: asLocalIndex('lsi-1', (v) => v),
+    lastName: asLocalIndex('lsi-1', v => v),
     provider: {
       __fields: {
-        providerName: asGlobalIndex('hash', 'gsi-2', (v) => v),
-        customerId: asGlobalIndex('sort', 'gsi-2', (v) => v)
+        providerName: asGlobalIndex('hash', 'gsi-2', v => v),
+        customerId: asGlobalIndex('sort', 'gsi-2', v => v)
       }
     },
-    email: asGlobalIndex('hash', 'gsi-1', (value) => value.toUpperCase())
+    email: asGlobalIndex('hash', 'gsi-1', value => value.toUpperCase())
   })
-  .timeToLive((entity) => (entity.isBlocked ? 0 : undefined))
+  .timeToLive(entity => (entity.isBlocked ? 0 : undefined))
   .map({
-    toInternal: (entity) => ({
+    toInternal: entity => ({
       fn: entity.firstName,
       ge: entity.gender === 'Male' ? 1 : 2,
       bl: entity.isBlocked ? true : undefined,
       p: { id: entity.provider.id }
     }),
-    toExternal: (internal) => ({
+    toExternal: internal => ({
       id: internal.sk.split('#')[1],
       firstName: internal.fn,
       lastName: internal['lsi-1-sk'],
@@ -137,21 +132,21 @@ export const UserEntity = defineEntity(DataTable)
   })
   .options({
     name: 'u'
-  });
+  })
 ```
 
 ### 3) Use the service and actions
 
 ```ts
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DynamoDBService, Find, Put, Query } from 'zodynamo';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBService, Find, Put, Query } from 'zodynamo'
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const service = new DynamoDBService({ dynamo: ddb });
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}))
+const service = new DynamoDBService({ dynamo: ddb })
 
-const user = await service.run(Find).one(UserEntity, { id: '335' });
-const users = await service.run(Find).all(UserEntity, { args: { id: '335' } });
+const user = await service.run(Find).one(UserEntity, { id: '335' })
+const users = await service.run(Find).all(UserEntity, { args: { id: '335' } })
 
 await service.run(Put).one(UserEntity, {
   id: '335',
@@ -165,12 +160,13 @@ await service.run(Put).one(UserEntity, {
     providerName: 'Google'
   },
   isBlocked: false
-});
+})
 
-const byEmail = await service.run(Query)
+const byEmail = await service
+  .run(Query)
   .for(UserEntity.table, [UserEntity])
   .globalIndex('gsi-1', 'JOHN.DOE@EXAMPLE.COM')
-  .exec();
+  .exec()
 ```
 
 ## Core Concepts
@@ -237,8 +233,8 @@ returned object.
 All operations are modeled as action classes. The typical entry point is:
 
 ```ts
-const service = new DynamoDBService({ dynamo });
-const find = service.run(Find);
+const service = new DynamoDBService({ dynamo })
+const find = service.run(Find)
 ```
 
 ### Find
@@ -250,21 +246,21 @@ const find = service.run(Find);
 - `byLocalIndex(entity, indexName, args)` queries an LSI.
 
 ```ts
-await service.run(Find).one(UserEntity, { id: '335' });
+await service.run(Find).one(UserEntity, { id: '335' })
 
 await service.run(Find).all(UserEntity, {
   args: { id: '335' },
   range: { beginsWith: 'user#' }
-});
+})
 
 await service.run(Find).byGlobalIndex(UserEntity, 'gsi-2', {
   provider: { providerName: 'Google', customerId: 'G-123' }
-});
+})
 
 await service.run(Find).byLocalIndex(UserEntity, 'lsi-1', {
   id: '335',
   lastName: 'Doe'
-});
+})
 ```
 
 ### Query
@@ -272,11 +268,12 @@ await service.run(Find).byLocalIndex(UserEntity, 'lsi-1', {
 The `Query` action is a fluent builder around DynamoDB Query operations:
 
 ```ts
-await service.run(Query)
+await service
+  .run(Query)
   .for(UserEntity.table, [UserEntity])
   .hash('users')
   .sort({ beginsWith: 'user#' })
-  .exec();
+  .exec()
 ```
 
 You can also query by global and local indexes with the same chain.
@@ -284,9 +281,9 @@ You can also query by global and local indexes with the same chain.
 ### Put
 
 ```ts
-await service.run(Put).one(UserEntity, user);
-await service.run(Put).oneOrThrow(UserEntity, user);
-await service.run(Put).all(UserEntity, [user1, user2]);
+await service.run(Put).one(UserEntity, user)
+await service.run(Put).oneOrThrow(UserEntity, user)
+await service.run(Put).all(UserEntity, [user1, user2])
 ```
 
 ### BatchWrite
@@ -294,11 +291,7 @@ await service.run(Put).all(UserEntity, [user1, user2]);
 Batch operations use DynamoDB BatchWrite with chunking and exponential backoff.
 
 ```ts
-await service
-  .run(BatchWrite)
-  .put(UserEntity, user)
-  .delete(UserEntity, { id: '335' })
-  .run();
+await service.run(BatchWrite).put(UserEntity, user).delete(UserEntity, { id: '335' }).run()
 ```
 
 ### TransactWrite
@@ -308,7 +301,7 @@ await service
   .run(TransactWrite)
   .put(UserEntity, user)
   .delete(UserEntity, { id: '335' })
-  .execOrFail();
+  .execOrFail()
 ```
 
 ### Raw Actions

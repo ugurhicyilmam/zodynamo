@@ -9,18 +9,10 @@
     "outDir": "dist",
     "baseUrl": "./src",
     "paths": {
-      "~/*": [
-        "*"
-      ]
+      "~/*": ["*"]
     },
-    "types": [
-      "vitest/globals"
-    ]
+    "types": ["vitest/globals"]
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "dist"
-  ]
+  "include": ["src", "tests"],
+  "exclude": ["dist"]
 }

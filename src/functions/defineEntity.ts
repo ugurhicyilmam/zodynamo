@@ -61,6 +61,7 @@ export function defineEntity<
     schema: TSchema
     key: EntityKeyDefinition<TTable, TSchema, THashKeyFields, TRangeKeyFields>
     entityType?: EntityTypeOption<TTable, TEntityType>
+    ttl?: (domain: z.infer<TSchema>) => number | undefined
   } & (GlobalIndexName<TTable> extends never
     ? { globalIndexes?: never }
     : {
@@ -92,6 +93,7 @@ export function defineEntity<
     key: options.key,
     globalIndexes: options.globalIndexes,
     localIndexes: options.localIndexes,
-    entityType: options.entityType
+    entityType: options.entityType,
+    ttl: options.ttl
   } as any
 }

@@ -129,4 +129,5 @@ export interface Entity<
   globalIndexes?: TGlobalIndexes
   localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
   entityType?: TEntityType
+  ttl?: (domain: z.infer<TSchema>) => number | undefined
 }

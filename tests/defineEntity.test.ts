@@ -168,7 +168,53 @@ describe('defineEntity', () => {
         }
       }
     })
+
     expect(entity.globalIndexes.GSI1.hashKey.calculate({ id: '1', score: 0 })).toEqual('USER#1')
     expect(entity.globalIndexes.GSI1.rangeKey.calculate({ score: 10, id: '1' })).toEqual(10)
+  })
+
+  test('entity with conditional TTL', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    const entity = defineEntity(table, {
+      name: 'Score',
+      schema: z.object({ id: z.string(), score: z.number() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `SCORE#${id}`
+        }
+      },
+      ttl: domain => (domain.score > 15 ? 3600 : undefined)
+    })
+
+    expect(entity.ttl).toBeDefined()
+    expect(entity.ttl!({ id: '1', score: 20 })).toBe(3600)
+    expect(entity.ttl!({ id: '2', score: 10 })).toBeUndefined()
+  })
+
+  test('entity without TTL', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
+      }
+    })
+
+    expect(entity.ttl).toBeUndefined()
   })
 })

@@ -143,4 +143,72 @@ describe('Entity types', () => {
       }
     })
   })
+
+  test('ttl receives correct domain type', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    defineEntity(table, {
+      name: 'Score',
+      schema: z.object({ id: z.string(), score: z.number() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `SCORE#${id}`
+        }
+      },
+      ttl: domain => {
+        // Should have access to schema-inferred type
+        const _id: string = domain.id
+        const _score: number = domain.score
+        // @ts-expect-error - invalid field
+        const _invalid = domain.invalidField
+        return domain.score > 15 ? 3600 : undefined
+      }
+    })
+  })
+
+  test('ttl return type is number | undefined', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    defineEntity(table, {
+      name: 'Score',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `SCORE#${id}`
+        }
+      },
+      // @ts-expect-error - must return number | undefined, not string
+      ttl: () => 'invalid'
+    })
+  })
+
+  test('ttl field is optional', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    // Should not error when ttl is omitted
+    defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        }
+      }
+    })
+  })
 })

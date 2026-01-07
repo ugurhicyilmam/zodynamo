@@ -235,4 +235,54 @@ describe('defineEntity', () => {
     // @ts-expect-error - missing discriminator
     const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
   })
+
+  test('supports nested field paths in key fields', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string', sk: 'string', type: 'string' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      entityTypeField: 'type'
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({
+        id: z.string(),
+        name: z.string(),
+        address: z.object({ street: z.string() })
+      }),
+      key: {
+        hashKey: {
+          fields: ['id', 'address.street'],
+          calculate: value => `USER#${value.id}#${value.address.street}`
+        },
+        rangeKey: {
+          fields: [],
+          calculate: () => 'PROFILE'
+        }
+      },
+      entityType: 'USER'
+    })
+
+    expect(entity.key.hashKey.calculate({ id: '1', address: { street: 'Main' } })).toEqual('USER#1#Main')
+
+    defineEntity(table, {
+      name: 'User',
+      schema: z.object({
+        id: z.string(),
+        address: z.object({ street: z.string() })
+      }),
+      key: {
+        hashKey: {
+          // @ts-expect-error - invalid nested path
+          fields: ['address.nope'],
+          calculate: () => 'USER#1'
+        },
+        rangeKey: {
+          fields: [],
+          calculate: () => 'PROFILE'
+        }
+      }
+    })
+  })
 })

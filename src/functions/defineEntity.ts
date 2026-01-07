@@ -3,8 +3,10 @@ import { ZodSchema, z } from 'zod'
 import {
   Entity,
   EntityGlobalIndexesDefinition,
-  EntityLocalIndexesDefinition
+  EntityLocalIndexesDefinition,
+  EntityTransform
 } from '../types/Entity'
+import { EntityGeneratedFields } from '../types/EntityGeneratedFields'
 import {
   EntityHashKeyValue,
   EntityRangeKeyValue,
@@ -60,7 +62,20 @@ export function defineEntity<
   TTtl extends ((domain: z.infer<TSchema>) => number | undefined) | undefined = (
     domain: z.infer<TSchema>
   ) => number | undefined,
-  const TEntityType extends string | undefined = undefined
+  const TEntityType extends string | undefined = undefined,
+  /*
+   * TInternal is inferred from the transform.encode return type.
+   * It is constrained to ensure checks on required fields.
+   */
+  TInternal extends
+    | EntityGeneratedFields<
+        TTable,
+        TGlobalIndexes,
+        EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+        TTtl,
+        TEntityType
+      >
+    | undefined = undefined
 >(
   table: TTable,
   options: {
@@ -69,12 +84,23 @@ export function defineEntity<
     key: EntityKeyDefinition<TTable, TSchema, THashKeyFields, TRangeKeyFields>
     entityType?: EntityTypeOption<TTable, TEntityType>
     ttl?: TTtl
+    transform?: EntityTransform<
+      z.infer<TSchema>,
+      EntityGeneratedFields<
+        TTable,
+        TGlobalIndexes,
+        EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+        TTtl,
+        TEntityType
+      >,
+      TInternal
+    >
   } & EntityTtlConstraint<TTable> &
     (GlobalIndexName<TTable> extends never
-    ? { globalIndexes?: never }
-    : {
-        globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, TSchema>
-      }) &
+      ? { globalIndexes?: never }
+      : {
+          globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, TSchema>
+        }) &
     (LocalIndexName<TTable> extends never
       ? { localIndexes?: never }
       : { localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields> })
@@ -88,7 +114,20 @@ export function defineEntity<
     TGlobalIndexes,
     TLocalIndexRangeKeyFields,
     TTtl,
-    TEntityType
+    TEntityType,
+    undefined extends TInternal
+      ? undefined
+      : EntityTransform<
+          z.infer<TSchema>,
+          EntityGeneratedFields<
+            TTable,
+            TGlobalIndexes,
+            EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+            TTtl,
+            TEntityType
+          >,
+          TInternal
+        >
   >,
   'globalIndexes'
 > &
@@ -103,6 +142,7 @@ export function defineEntity<
     globalIndexes: options.globalIndexes,
     localIndexes: options.localIndexes,
     entityType: options.entityType,
-    ttl: options.ttl
+    ttl: options.ttl,
+    transform: options.transform
   } as any
 }

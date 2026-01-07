@@ -131,7 +131,7 @@ export interface Entity<
     : { rangeKey?: never })
   globalIndexes?: TGlobalIndexes
   localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
-  entityType?: TEntityType
+  entityType: TEntityType
   ttl?: TTable['ttl'] extends keyof TTable['fields'] ? TTtl : never
   transform?: TTransform
 }

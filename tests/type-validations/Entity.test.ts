@@ -25,8 +25,7 @@ describe('Entity types', () => {
       entityType: 'USER'
     })
 
-    // Why it can be undefined?
-    expectTypeOf(entity.entityType).toEqualTypeOf<'USER' | undefined>()
+    expectTypeOf(entity.entityType).toEqualTypeOf<'USER'>()
   })
 
   test('forbids entityType when NOT configured on table', () => {
@@ -36,7 +35,7 @@ describe('Entity types', () => {
       primaryIndex: { hashKey: 'pk' }
     })
 
-    defineEntity(table, {
+    const entity = defineEntity(table, {
       name: 'User',
       schema: z.object({ id: z.string() }),
       key: {

@@ -37,10 +37,28 @@ export type SortKeyOperations =
 export type PartitionKeyOperations = 'partitionFrom' | 'partitionValue'
 
 export type QueryModifierOperations = 'limit' | 'consistentRead' | 'startKey'
-
 export type QueryOutputOperations = 'raw' | 'select' | 'count'
+export type QueryExecOperations = 'exec'
 
 export type QueryOptionsOperations = QueryModifierOperations | QueryOutputOperations
+
+type AllowedQueryOperations<State extends QueryState> = State extends 'INITIAL'
+  ? PartitionKeyOperations
+  : State extends 'PARTITION_SET'
+    ? SortKeyOperations | QueryOptionsOperations | QueryExecOperations
+    : State extends 'SORT_SET' | 'OPTIONS_SET'
+      ? QueryOptionsOperations | QueryExecOperations
+      : never
+
+export type ResolveQueryChain<
+  Base,
+  State extends QueryState,
+  Modifiers extends string,
+  Output extends QueryOutputMode<any>
+> = Omit<
+  Pick<Base, keyof Base & AllowedQueryOperations<State>>,
+  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+>
 
 /**
  * Helper to resolve the partition and sort key types for a given entity and index.

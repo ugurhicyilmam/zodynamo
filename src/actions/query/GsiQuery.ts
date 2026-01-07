@@ -3,12 +3,10 @@ import { GlobalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
 import {
-  PartitionKeyOperations,
   QueryKeyTypes,
-  QueryOptionsOperations,
   QueryOutputMode,
-  QueryOutputOperations,
   QueryState,
+  ResolveQueryChain,
   SortKeyOperations
 } from './types'
 
@@ -28,26 +26,11 @@ export type GsiQuery<
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> = Omit<
-  State extends 'INITIAL'
-    ? Omit<
-        BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
-        SortKeyOperations | 'exec' | QueryOptionsOperations
-      >
-    : State extends 'PARTITION_SET'
-      ? Omit<BaseGsiQuery<E, IndexName, Output, State, Modifiers>, PartitionKeyOperations>
-      : State extends 'SORT_SET'
-        ? Omit<
-            BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
-            PartitionKeyOperations | SortKeyOperations
-          >
-        : State extends 'OPTIONS_SET'
-          ? Omit<
-              BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
-              PartitionKeyOperations | SortKeyOperations
-            >
-          : never,
-  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+> = ResolveQueryChain<
+  BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
+  State,
+  Modifiers,
+  Output
 >
 
 /**

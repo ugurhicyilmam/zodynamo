@@ -2,15 +2,7 @@ import { Entity } from '../../types/Entity'
 import { LocalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
-import {
-  PartitionKeyOperations,
-  QueryKeyTypes,
-  QueryOptionsOperations,
-  QueryOutputMode,
-  QueryOutputOperations,
-  QueryState,
-  SortKeyOperations
-} from './types'
+import { QueryKeyTypes, QueryOutputMode, QueryState, ResolveQueryChain } from './types'
 
 export type LsiQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
@@ -18,26 +10,11 @@ export type LsiQuery<
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> = Omit<
-  State extends 'INITIAL'
-    ? Omit<
-        LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
-        SortKeyOperations | 'exec' | QueryOptionsOperations
-      >
-    : State extends 'PARTITION_SET'
-      ? Omit<LsiQueryBuilder<E, IndexName, Output, State, Modifiers>, PartitionKeyOperations>
-      : State extends 'SORT_SET'
-        ? Omit<
-            LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
-            PartitionKeyOperations | SortKeyOperations
-          >
-        : State extends 'OPTIONS_SET'
-          ? Omit<
-              LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
-              PartitionKeyOperations | SortKeyOperations
-            >
-          : never,
-  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+> = ResolveQueryChain<
+  LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
+  State,
+  Modifiers,
+  Output
 >
 
 /**

@@ -2,12 +2,10 @@ import { Entity } from '../../types/Entity'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
 import {
-  PartitionKeyOperations,
   QueryKeyTypes,
-  QueryOptionsOperations,
   QueryOutputMode,
-  QueryOutputOperations,
   QueryState,
+  ResolveQueryChain,
   SortKeyOperations
 } from './types'
 
@@ -25,27 +23,7 @@ export type PrimaryQuery<
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> = Omit<
-  State extends 'INITIAL'
-    ? Omit<
-        BasePrimaryQuery<E, Output, State, Modifiers>,
-        SortKeyOperations | 'exec' | QueryOptionsOperations
-      >
-    : State extends 'PARTITION_SET'
-      ? Omit<BasePrimaryQuery<E, Output, State, Modifiers>, PartitionKeyOperations>
-      : State extends 'SORT_SET'
-        ? Omit<
-            BasePrimaryQuery<E, Output, State, Modifiers>,
-            PartitionKeyOperations | SortKeyOperations
-          >
-        : State extends 'OPTIONS_SET'
-          ? Omit<
-              BasePrimaryQuery<E, Output, State, Modifiers>,
-              PartitionKeyOperations | SortKeyOperations
-            >
-          : never,
-  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
->
+> = ResolveQueryChain<BasePrimaryQuery<E, Output, State, Modifiers>, State, Modifiers, Output>
 
 /**
  * Builds a query for the Primary Index of a table.

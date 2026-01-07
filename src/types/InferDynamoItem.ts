@@ -2,7 +2,7 @@ import { Entity } from '~/types/Entity'
 import { InferEntity } from '~/types/InferEntity'
 import { Prettify, ResolveDynamoType } from '~/types/utils'
 
-export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any>> = Prettify<
+export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
   InferEntity<T> &
     (T['table']['primaryIndex']['rangeKey'] extends string
       ? {

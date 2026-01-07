@@ -59,30 +59,19 @@ describe('InferEntityLocalIndexes', () => {
     type Lsi1Fields = InferLocalIndexRangeKeyFields<typeof entity, 'LSI1'>
     type Lsi2Fields = InferLocalIndexRangeKeyFields<typeof entity, 'LSI2'>
 
-    const nameOk1: Names = 'LSI1'
-    const nameOk2: Names = 'LSI2'
-    // @ts-expect-error - LSI3 is not defined
-    const nameErr: Names = 'LSI3'
-
-    const indexFieldsOk: IndexFields = {
-      LSI1: { createdAt: '1' },
-      LSI2: { metrics: { score: 1 } }
-    }
-    const lsi1Ok: Lsi1Fields = { createdAt: '1' }
-    const lsi2Ok: Lsi2Fields = { metrics: { score: 1 } }
-
-    // @ts-expect-error - missing LSI2
-    const indexFieldsErr: IndexFields = {
-      LSI1: { createdAt: '1' }
-    }
-
-    expect(nameOk1).toBeDefined()
-    expect(nameOk2).toBeDefined()
-    expect(nameErr).toBeDefined()
-    expect(indexFieldsOk).toBeDefined()
-    expect(lsi1Ok).toBeDefined()
-    expect(lsi2Ok).toBeDefined()
-    expect(indexFieldsErr).toBeDefined()
+    expectTypeOf('' as Names).toEqualTypeOf<'LSI1' | 'LSI2'>()
+    expectTypeOf({} as Lsi1Fields).toEqualTypeOf<{ createdAt: string }>()
+    expectTypeOf({} as Lsi2Fields).toEqualTypeOf<{ metrics: { score: number } }>()
+    expectTypeOf({} as IndexFields).toEqualTypeOf<{
+      readonly LSI1: {
+        createdAt: string
+      }
+      readonly LSI2: {
+        metrics: {
+          score: number
+        }
+      }
+    }>()
   })
 
   test('infers no local index names when none are defined', () => {

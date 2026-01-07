@@ -1,9 +1,14 @@
 import { ZodSchema, z } from 'zod'
 
-import { Entity, EntityLocalIndexesDefinition } from '../types/Entity'
+import {
+  Entity,
+  EntityGlobalIndexesDefinition,
+  EntityLocalIndexesDefinition
+} from '../types/Entity'
 import {
   EntityHashKeyValue,
   EntityRangeKeyValue,
+  GlobalIndexName,
   LocalIndexName
 } from '../types/EntityKey'
 import { FieldPath, PickByPaths } from '../types/FieldPath'
@@ -45,6 +50,7 @@ export function defineEntity<
   TSchema extends ZodSchema,
   const THashKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
   const TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[] = [],
+  const TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>> = {},
   const TLocalIndexRangeKeyFields extends EntityLocalIndexRangeKeyFields<
     TTable,
     TSchema
@@ -56,17 +62,22 @@ export function defineEntity<
     name: TName
     schema: TSchema
     key: EntityKeyDefinition<TTable, TSchema, THashKeyFields, TRangeKeyFields>
-    localIndexes?: LocalIndexName<TTable> extends never
-      ? never
-      : EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
     entityType?: EntityTypeOption<TTable, TEntityType>
-  }
+  } & (GlobalIndexName<TTable> extends never
+    ? { globalIndexes?: never }
+    : {
+        globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, TSchema>
+      }) &
+    (LocalIndexName<TTable> extends never
+      ? { localIndexes?: never }
+      : { localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields> })
 ): Entity<
   TTable,
   TName,
   TSchema,
   THashKeyFields,
   TRangeKeyFields,
+  TGlobalIndexes,
   TLocalIndexRangeKeyFields,
   TEntityType
 > {
@@ -75,6 +86,7 @@ export function defineEntity<
     name: options.name,
     schema: options.schema,
     key: options.key,
+    globalIndexes: options.globalIndexes,
     localIndexes: options.localIndexes,
     entityType: options.entityType
   }

@@ -3,8 +3,11 @@ import { ZodSchema, z } from 'zod'
 import { Table } from './Table'
 import {
   EntityHashKeyValue,
+  EntityGlobalIndexHashKeyValue,
+  EntityGlobalIndexRangeKeyValue,
   EntityLocalIndexRangeKeyValue,
   EntityRangeKeyValue,
+  GlobalIndexName,
   LocalIndexName
 } from './EntityKey'
 import { FieldPath, PickByPaths } from './FieldPath'
@@ -34,6 +37,29 @@ export type EntityLocalIndexesDefinition<
   }
 }
 
+export type EntityGlobalIndexesDefinition<
+  TTable extends Table<any>,
+  TSchema extends ZodSchema
+> = {
+  [K in GlobalIndexName<TTable>]?: {
+    hashKey: KeyPartDefinition<
+      TSchema,
+      readonly FieldPath<z.infer<TSchema>>[],
+      EntityGlobalIndexHashKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
+    >
+  } & (TTable['globalIndexes'] extends Record<string, any>
+    ? TTable['globalIndexes'][Extract<K, GlobalIndexName<TTable>>]['rangeKey'] extends string
+      ? {
+          rangeKey: KeyPartDefinition<
+            TSchema,
+            readonly FieldPath<z.infer<TSchema>>[],
+            EntityGlobalIndexRangeKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
+          >
+        }
+      : { rangeKey?: never }
+    : { rangeKey?: never })
+}
+
 type EntityLocalIndexesOption<
   TTable extends Table<any>,
   TSchema extends ZodSchema,
@@ -58,6 +84,7 @@ export interface Entity<
   TSchema extends ZodSchema,
   THashKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
   TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
+  TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>>,
   TLocalIndexRangeKeyFields extends Partial<
     Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
   >,
@@ -71,6 +98,7 @@ export interface Entity<
   } & (TTable['primaryIndex']['rangeKey'] extends string
     ? { rangeKey: KeyPartDefinition<TSchema, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
     : { rangeKey?: never })
-  localIndexes?: EntityLocalIndexesOption<TTable, TSchema, TLocalIndexRangeKeyFields>
+  globalIndexes?: TGlobalIndexes
+  localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
   entityType?: TEntityType
 }

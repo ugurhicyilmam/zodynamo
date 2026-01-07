@@ -11,10 +11,29 @@ type RangeKeyField<TTable extends Table<any>> = Extract<
   string
 >
 
+export type GlobalIndexName<TTable extends Table<any>> =
+  TTable['globalIndexes'] extends Record<string, any>
+    ? Extract<keyof TTable['globalIndexes'], string>
+    : never
+
 export type LocalIndexName<TTable extends Table<any>> =
   TTable['localIndexes'] extends Record<string, any>
     ? Extract<keyof TTable['localIndexes'], string>
     : never
+
+type GlobalIndexHashKeyField<
+  TTable extends Table<any>,
+  TIndexName extends GlobalIndexName<TTable>
+> = TTable['globalIndexes'] extends Record<string, any>
+  ? Extract<TTable['globalIndexes'][TIndexName]['hashKey'], string>
+  : never
+
+type GlobalIndexRangeKeyField<
+  TTable extends Table<any>,
+  TIndexName extends GlobalIndexName<TTable>
+> = TTable['globalIndexes'] extends Record<string, any>
+  ? Extract<NonNullable<TTable['globalIndexes'][TIndexName]['rangeKey']>, string>
+  : never
 
 type LocalIndexRangeKeyField<
   TTable extends Table<any>,
@@ -25,6 +44,14 @@ type LocalIndexRangeKeyField<
 
 export type EntityHashKeyValue<TTable extends Table<any>> = KeyValue<TTable, HashKeyField<TTable>>
 export type EntityRangeKeyValue<TTable extends Table<any>> = KeyValue<TTable, RangeKeyField<TTable>>
+export type EntityGlobalIndexHashKeyValue<
+  TTable extends Table<any>,
+  TIndexName extends GlobalIndexName<TTable>
+> = KeyValue<TTable, GlobalIndexHashKeyField<TTable, TIndexName>>
+export type EntityGlobalIndexRangeKeyValue<
+  TTable extends Table<any>,
+  TIndexName extends GlobalIndexName<TTable>
+> = KeyValue<TTable, GlobalIndexRangeKeyField<TTable, TIndexName>>
 export type EntityLocalIndexRangeKeyValue<
   TTable extends Table<any>,
   TIndexName extends LocalIndexName<TTable>

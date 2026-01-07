@@ -36,13 +36,11 @@ export type SortKeyOperations =
 
 export type PartitionKeyOperations = 'partitionFrom' | 'partitionValue'
 
-export type QueryOptionsOperations =
-  | 'limit'
-  | 'consistentRead'
-  | 'startKey'
-  | 'raw'
-  | 'select'
-  | 'count'
+export type QueryModifierOperations = 'limit' | 'consistentRead' | 'startKey'
+
+export type QueryOutputOperations = 'raw' | 'select' | 'count'
+
+export type QueryOptionsOperations = QueryModifierOperations | QueryOutputOperations
 
 /**
  * Helper to resolve the partition and sort key types for a given entity and index.

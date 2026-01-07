@@ -6,6 +6,7 @@ import {
   QueryKeyTypes,
   QueryOptionsOperations,
   QueryOutputMode,
+  QueryOutputOperations,
   QueryState,
   SortKeyOperations
 } from './types'
@@ -13,24 +14,38 @@ import {
 type BasePrimaryQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
 > = E['table']['primaryIndex']['rangeKey'] extends string
-  ? PrimaryQueryBuilder<E, Output, State>
-  : Omit<PrimaryQueryBuilder<E, Output, State>, SortKeyOperations>
+  ? PrimaryQueryBuilder<E, Output, State, Modifiers>
+  : Omit<PrimaryQueryBuilder<E, Output, State, Modifiers>, SortKeyOperations>
 
 export type PrimaryQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
-> = State extends 'INITIAL'
-  ? Omit<BasePrimaryQuery<E, Output, State>, SortKeyOperations | 'exec' | QueryOptionsOperations>
-  : State extends 'PARTITION_SET'
-    ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations>
-    : State extends 'SORT_SET'
-      ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations | SortKeyOperations>
-      : State extends 'OPTIONS_SET'
-        ? Omit<BasePrimaryQuery<E, Output, State>, PartitionKeyOperations | SortKeyOperations>
-        : never
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
+> = Omit<
+  State extends 'INITIAL'
+    ? Omit<
+        BasePrimaryQuery<E, Output, State, Modifiers>,
+        SortKeyOperations | 'exec' | QueryOptionsOperations
+      >
+    : State extends 'PARTITION_SET'
+      ? Omit<BasePrimaryQuery<E, Output, State, Modifiers>, PartitionKeyOperations>
+      : State extends 'SORT_SET'
+        ? Omit<
+            BasePrimaryQuery<E, Output, State, Modifiers>,
+            PartitionKeyOperations | SortKeyOperations
+          >
+        : State extends 'OPTIONS_SET'
+          ? Omit<
+              BasePrimaryQuery<E, Output, State, Modifiers>,
+              PartitionKeyOperations | SortKeyOperations
+            >
+          : never,
+  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+>
 
 /**
  * Builds a query for the Primary Index of a table.
@@ -42,7 +57,8 @@ export type PrimaryQuery<
 export class PrimaryQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
 > {
   protected _entity: E
   protected _output: Output
@@ -66,7 +82,7 @@ export class PrimaryQueryBuilder<
    */
   partitionFrom(
     domain: E['key']['hashKey']['calculate'] extends (item: infer Input) => any ? Input : never
-  ): PrimaryQuery<E, Output, 'PARTITION_SET'> {
+  ): PrimaryQuery<E, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
 
@@ -77,7 +93,7 @@ export class PrimaryQueryBuilder<
    */
   partitionValue(
     value: QueryKeyTypes<E, { kind: 'primary' }>['pk']
-  ): PrimaryQuery<E, Output, 'PARTITION_SET'> {
+  ): PrimaryQuery<E, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
 
@@ -92,7 +108,7 @@ export class PrimaryQueryBuilder<
   sortEquals(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -106,7 +122,7 @@ export class PrimaryQueryBuilder<
   sortBeginsWith(
     val: E['table']['primaryIndex']['rangeKey'] extends string ? string : never
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -122,7 +138,7 @@ export class PrimaryQueryBuilder<
     min: QueryKeyTypes<E, { kind: 'primary' }>['sk'],
     max: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -136,7 +152,7 @@ export class PrimaryQueryBuilder<
   sortGreaterThan(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -150,7 +166,7 @@ export class PrimaryQueryBuilder<
   sortGreaterThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -164,7 +180,7 @@ export class PrimaryQueryBuilder<
   sortLessThan(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -178,7 +194,7 @@ export class PrimaryQueryBuilder<
   sortLessThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'primary' }>['sk']
   ): E['table']['primaryIndex']['rangeKey'] extends string
-    ? PrimaryQuery<E, Output, 'SORT_SET'>
+    ? PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -190,7 +206,9 @@ export class PrimaryQueryBuilder<
    *
    * @param enabled - Whether to use strongly consistent reads. Defaults to true.
    */
-  consistentRead(enabled: boolean = true): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+  consistentRead(
+    enabled: boolean = true
+  ): PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers | 'consistentRead'> {
     return this as any
   }
 
@@ -199,7 +217,7 @@ export class PrimaryQueryBuilder<
    *
    * @param limit - The maximum number of items.
    */
-  limit(limit: number): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+  limit(limit: number): PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
     return this as any
   }
 
@@ -208,7 +226,9 @@ export class PrimaryQueryBuilder<
    *
    * @param key - The LastEvaluatedKey from a previous response.
    */
-  startKey(key: Record<string, any>): PrimaryQuery<E, Output, 'OPTIONS_SET'> {
+  startKey(
+    key: Record<string, any>
+  ): PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
     return this as any
   }
 
@@ -216,7 +236,7 @@ export class PrimaryQueryBuilder<
    * Switches the output mode to 'raw'.
    * The query will return raw DynamoDB items (no typings/transformations applied).
    */
-  raw(): PrimaryQuery<E, 'raw', 'OPTIONS_SET'> {
+  raw(): PrimaryQuery<E, 'raw', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -227,7 +247,7 @@ export class PrimaryQueryBuilder<
    */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): PrimaryQuery<E, { select: readonly K[] }, 'OPTIONS_SET'> {
+  ): PrimaryQuery<E, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -235,7 +255,7 @@ export class PrimaryQueryBuilder<
    * Switches the output mode to 'count'.
    * The query will return the count of items matching the condition.
    */
-  count(): PrimaryQuery<E, 'count', 'OPTIONS_SET'> {
+  count(): PrimaryQuery<E, 'count', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -246,9 +266,9 @@ export class PrimaryQueryBuilder<
    */
   exec(
     this:
-      | PrimaryQuery<E, Output, 'PARTITION_SET'>
-      | PrimaryQuery<E, Output, 'SORT_SET'>
-      | PrimaryQuery<E, Output, 'OPTIONS_SET'>
+      | PrimaryQuery<E, Output, 'PARTITION_SET', Modifiers>
+      | PrimaryQuery<E, Output, 'SORT_SET', Modifiers>
+      | PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

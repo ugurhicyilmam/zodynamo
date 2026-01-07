@@ -7,6 +7,7 @@ import {
   QueryKeyTypes,
   QueryOptionsOperations,
   QueryOutputMode,
+  QueryOutputOperations,
   QueryState,
   SortKeyOperations
 } from './types'
@@ -15,25 +16,29 @@ export type LsiQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
-> = State extends 'INITIAL'
-  ? Omit<
-      LsiQueryBuilder<E, IndexName, Output, State>,
-      SortKeyOperations | 'exec' | QueryOptionsOperations
-    >
-  : State extends 'PARTITION_SET'
-    ? Omit<LsiQueryBuilder<E, IndexName, Output, State>, PartitionKeyOperations>
-    : State extends 'SORT_SET'
-      ? Omit<
-          LsiQueryBuilder<E, IndexName, Output, State>,
-          PartitionKeyOperations | SortKeyOperations
-        >
-      : State extends 'OPTIONS_SET'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
+> = Omit<
+  State extends 'INITIAL'
+    ? Omit<
+        LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
+        SortKeyOperations | 'exec' | QueryOptionsOperations
+      >
+    : State extends 'PARTITION_SET'
+      ? Omit<LsiQueryBuilder<E, IndexName, Output, State, Modifiers>, PartitionKeyOperations>
+      : State extends 'SORT_SET'
         ? Omit<
-            LsiQueryBuilder<E, IndexName, Output, State>,
+            LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
             PartitionKeyOperations | SortKeyOperations
           >
-        : never
+        : State extends 'OPTIONS_SET'
+          ? Omit<
+              LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
+              PartitionKeyOperations | SortKeyOperations
+            >
+          : never,
+  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+>
 
 /**
  * Builds a query for a Local Secondary Index (LSI) of a table.
@@ -47,7 +52,8 @@ export class LsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
 > {
   protected _entity: E
   protected _indexName: IndexName
@@ -71,7 +77,7 @@ export class LsiQueryBuilder<
    */
   partitionFrom(
     domain: E['key']['hashKey']['calculate'] extends (item: infer Input) => any ? Input : never
-  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET'> {
+  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
 
@@ -82,7 +88,7 @@ export class LsiQueryBuilder<
    */
   partitionValue(
     value: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['pk']
-  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET'> {
+  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
 
@@ -109,7 +115,7 @@ export class LsiQueryBuilder<
    */
   sortBeginsWith(
     val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'] extends string ? string : never
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers> {
     return this as any
   }
 
@@ -122,7 +128,7 @@ export class LsiQueryBuilder<
   sortBetween(
     min: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'],
     max: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+  ): LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers> {
     return this as any
   }
 
@@ -177,7 +183,9 @@ export class LsiQueryBuilder<
    *
    * @param enabled - Whether to use strongly consistent reads. Defaults to true.
    */
-  consistentRead(enabled: boolean = true): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+  consistentRead(
+    enabled: boolean = true
+  ): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'consistentRead'> {
     return this as any
   }
 
@@ -186,7 +194,7 @@ export class LsiQueryBuilder<
    *
    * @param limit - The maximum number of items.
    */
-  limit(limit: number): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+  limit(limit: number): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
     return this as any
   }
 
@@ -195,7 +203,9 @@ export class LsiQueryBuilder<
    *
    * @param key - The LastEvaluatedKey from a previous response.
    */
-  startKey(key: Record<string, any>): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+  startKey(
+    key: Record<string, any>
+  ): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
     return this as any
   }
 
@@ -203,7 +213,7 @@ export class LsiQueryBuilder<
    * Switches the output mode to 'raw'.
    * The query will return raw DynamoDB items.
    */
-  raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET'> {
+  raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -214,7 +224,7 @@ export class LsiQueryBuilder<
    */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET'> {
+  ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -222,7 +232,7 @@ export class LsiQueryBuilder<
    * Switches the output mode to 'count'.
    * The query will return the count of items matching the condition.
    */
-  count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET'> {
+  count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -233,9 +243,9 @@ export class LsiQueryBuilder<
    */
   exec(
     this:
-      | LsiQuery<E, IndexName, Output, 'PARTITION_SET'>
-      | LsiQuery<E, IndexName, Output, 'SORT_SET'>
-      | LsiQuery<E, IndexName, Output, 'OPTIONS_SET'>
+      | LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers>
+      | LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
+      | LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

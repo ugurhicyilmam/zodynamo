@@ -7,6 +7,7 @@ import {
   QueryKeyTypes,
   QueryOptionsOperations,
   QueryOutputMode,
+  QueryOutputOperations,
   QueryState,
   SortKeyOperations
 } from './types'
@@ -15,31 +16,39 @@ type BaseGsiQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
 > = NonNullable<E['globalIndexes']>[IndexName]['rangeKey'] extends { calculate: any }
-  ? GsiQueryBuilder<E, IndexName, Output, State>
-  : Omit<GsiQueryBuilder<E, IndexName, Output, State>, SortKeyOperations>
+  ? GsiQueryBuilder<E, IndexName, Output, State, Modifiers>
+  : Omit<GsiQueryBuilder<E, IndexName, Output, State, Modifiers>, SortKeyOperations>
 
 export type GsiQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
-> = State extends 'INITIAL'
-  ? Omit<
-      BaseGsiQuery<E, IndexName, Output, State>,
-      SortKeyOperations | 'exec' | QueryOptionsOperations
-    >
-  : State extends 'PARTITION_SET'
-    ? Omit<BaseGsiQuery<E, IndexName, Output, State>, PartitionKeyOperations>
-    : State extends 'SORT_SET'
-      ? Omit<BaseGsiQuery<E, IndexName, Output, State>, PartitionKeyOperations | SortKeyOperations>
-      : State extends 'OPTIONS_SET'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
+> = Omit<
+  State extends 'INITIAL'
+    ? Omit<
+        BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
+        SortKeyOperations | 'exec' | QueryOptionsOperations
+      >
+    : State extends 'PARTITION_SET'
+      ? Omit<BaseGsiQuery<E, IndexName, Output, State, Modifiers>, PartitionKeyOperations>
+      : State extends 'SORT_SET'
         ? Omit<
-            BaseGsiQuery<E, IndexName, Output, State>,
+            BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
             PartitionKeyOperations | SortKeyOperations
           >
-        : never
+        : State extends 'OPTIONS_SET'
+          ? Omit<
+              BaseGsiQuery<E, IndexName, Output, State, Modifiers>,
+              PartitionKeyOperations | SortKeyOperations
+            >
+          : never,
+  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+>
 
 /**
  * Builds a query for a Global Secondary Index (GSI) of a table.
@@ -53,7 +62,8 @@ export class GsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL'
+  State extends QueryState = 'INITIAL',
+  Modifiers extends string = never
 > {
   protected _entity: E
   protected _indexName: IndexName
@@ -76,7 +86,7 @@ export class GsiQueryBuilder<
    */
   partitionValue(
     value: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['pk']
-  ): GsiQuery<E, IndexName, Output, 'PARTITION_SET'> {
+  ): GsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
 
@@ -91,7 +101,7 @@ export class GsiQueryBuilder<
   sortEquals(
     val: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -107,7 +117,7 @@ export class GsiQueryBuilder<
       ? string
       : never
   ): NonNullable<E['globalIndexes']>[IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -123,7 +133,7 @@ export class GsiQueryBuilder<
     min: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk'],
     max: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -137,7 +147,7 @@ export class GsiQueryBuilder<
   sortGreaterThan(
     val: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -151,7 +161,7 @@ export class GsiQueryBuilder<
   sortGreaterThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -165,7 +175,7 @@ export class GsiQueryBuilder<
   sortLessThan(
     val: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -179,7 +189,7 @@ export class GsiQueryBuilder<
   sortLessThanOrEqualTo(
     val: QueryKeyTypes<E, { kind: 'gsi'; name: IndexName }>['sk']
   ): E['globalIndexes'][IndexName]['rangeKey'] extends { calculate: any }
-    ? GsiQuery<E, IndexName, Output, 'SORT_SET'>
+    ? GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
     : never {
     return this as any
   }
@@ -193,7 +203,7 @@ export class GsiQueryBuilder<
    *
    * @param limit - The maximum number of items.
    */
-  limit(limit: number): GsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+  limit(limit: number): GsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
     return this as any
   }
 
@@ -202,7 +212,9 @@ export class GsiQueryBuilder<
    *
    * @param key - The LastEvaluatedKey from a previous response.
    */
-  startKey(key: Record<string, any>): GsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
+  startKey(
+    key: Record<string, any>
+  ): GsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
     return this as any
   }
 
@@ -210,7 +222,7 @@ export class GsiQueryBuilder<
    * Switches the output mode to 'raw'.
    * The query will return raw DynamoDB items.
    */
-  raw(): GsiQuery<E, IndexName, 'raw', 'OPTIONS_SET'> {
+  raw(): GsiQuery<E, IndexName, 'raw', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -221,7 +233,7 @@ export class GsiQueryBuilder<
    */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): GsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET'> {
+  ): GsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -229,7 +241,7 @@ export class GsiQueryBuilder<
    * Switches the output mode to 'count'.
    * The query will return the count of items matching the condition.
    */
-  count(): GsiQuery<E, IndexName, 'count', 'OPTIONS_SET'> {
+  count(): GsiQuery<E, IndexName, 'count', 'OPTIONS_SET', Modifiers> {
     return this as any
   }
 
@@ -240,9 +252,9 @@ export class GsiQueryBuilder<
    */
   exec(
     this:
-      | GsiQuery<E, IndexName, Output, 'PARTITION_SET'>
-      | GsiQuery<E, IndexName, Output, 'SORT_SET'>
-      | GsiQuery<E, IndexName, Output, 'OPTIONS_SET'>
+      | GsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers>
+      | GsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
+      | GsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

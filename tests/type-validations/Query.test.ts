@@ -207,7 +207,14 @@ describe('Query DSL Type Validations', () => {
     // @ts-expect-error - sortBeginsWith not allowed on hash-only table (even after modifiers)
     q.primary().partitionFrom({ id: '123' }).limit(1).sortBeginsWith('foo')
 
+    // @ts-expect-error - Cannot use limit twice
     q.primary().partitionValue('asd').limit(3).limit(5)
+
+    // @ts-expect-error - Cannot use count and raw together
+    q.primary().partitionValue('asd').count().raw()
+
+    // @ts-expect-error - Cannot use select and count together
+    q.primary().partitionValue('asd').select(['id']).count()
 
     // LSI query should disallowed entirely (no local indexes)
     // @ts-expect-error - No LSI defined

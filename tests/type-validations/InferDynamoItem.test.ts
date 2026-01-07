@@ -29,7 +29,7 @@ describe('InferDynamoItem', () => {
         }
       },
       entityType: 'USER',
-      ttl: domain => (domain.name.length > 5 ? 3600 : 333)
+      ttl: domain => (domain.name.length > 5 ? 3600 : 3800)
     })
 
     type Internal = InferDynamoItem<typeof entity>
@@ -49,5 +49,50 @@ describe('InferDynamoItem', () => {
     const intErr: Internal = { id: '1', name: 'Alice', sk: 'PROFILE', type: 'USER' }
     // @ts-expect-error - missing discriminator
     const intErr2: Internal = { id: '1', name: 'Alice', pk: 'USER#1', sk: 'PROFILE' }
+  })
+
+  test('uses ttl callback return type for ttl field', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
+    })
+
+    const numberOnly = defineEntity(table, {
+      name: 'NumberOnly',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `NUMBER#${id}`
+        }
+      },
+      ttl: () => 3600
+    })
+
+    type NumberOnlyInternal = InferDynamoItem<typeof numberOnly>
+
+    const numberOnlyOk: NumberOnlyInternal = { id: '1', pk: 'NUMBER#1', expireAt: 3600 }
+    // @ts-expect-error - ttl required when return type is number
+    const numberOnlyErr: NumberOnlyInternal = { id: '1', pk: 'NUMBER#1' }
+
+    const undefinedOnly = defineEntity(table, {
+      name: 'UndefinedOnly',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `UNDEFINED#${id}`
+        }
+      },
+      ttl: () => undefined
+    })
+
+    type UndefinedOnlyInternal = InferDynamoItem<typeof undefinedOnly>
+
+    const undefinedOnlyOk: UndefinedOnlyInternal = { id: '1', pk: 'UNDEFINED#1' }
+    // @ts-expect-error - ttl cannot be a number when return type is undefined
+    const undefinedOnlyErr: UndefinedOnlyInternal = { id: '1', pk: 'UNDEFINED#1', expireAt: 1 }
   })
 })

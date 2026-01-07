@@ -44,9 +44,15 @@ export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any, 
         ? { [K in T['table']['entityTypeField']]: NonNullable<T['entityType']> }
         : {}
       : {}) &
-    (Exclude<T['ttl'], undefined> extends (domain: any) => number | undefined
+    (Exclude<T['ttl'], undefined> extends (domain: any) => infer R
       ? T['table']['ttl'] extends keyof T['table']['fields']
-        ? { [K in T['table']['ttl']]?: ResolveDynamoType<T['table']['fields'][K]> }
+        ? undefined extends R
+          ? {
+              [K in T['table']['ttl']]?: R extends number ? number : R
+            }
+          : {
+              [K in T['table']['ttl']]: R extends number ? number : R
+            }
         : {}
       : {})
   >

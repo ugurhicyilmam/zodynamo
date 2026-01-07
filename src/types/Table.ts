@@ -1,64 +1,116 @@
-export type Input<T> = T // Placeholder for now, can be expanded later if needed.
+/**
+ * Placeholder for now. This is intentionally a pass-through type so the API can evolve later (for example, to support lazy or computed inputs).
+ */
+export type Input<T> = T
 
+/**
+ * Describes the logical schema of a DynamoDB table as understood by this library.
+ *
+ * This configuration is used **only** for:
+ * - Runtime validation
+ * - Type-safe query construction
+ * - Index-aware access patterns
+ *
+ * ⚠️ This type does **not** create, modify, or deploy DynamoDB tables or indexes.
+ * The actual table and indexes must already exist in DynamoDB.
+ *
+ * The structure intentionally follows the shape of SST's `DynamoArgs`
+ * to remain familiar, while being strictly limited to client-side concerns.
+ */
 export interface Table<TFields extends Record<string, 'string' | 'number' | 'binary'>> {
+  /**
+   * The name of the DynamoDB table.
+   *
+   * This value is passed through to DynamoDB API calls and is not validated
+   * against AWS at runtime.
+   */
   name: string
-  entityTypeField?: string
 
   /**
-   * An object defining the fields of the table that'll be used to create indexes. The key is the name of the field and the value is the type.
+   * Optional field name used to store an entity discriminator.
    *
-   * :::note
-   * You don't need to define all your fields here, just the ones you want to use for indexes.
-   * :::
+   * When provided, this can be used by higher-level abstractions in the library
+   * to differentiate between multiple entity types stored in the same table.
+   */
+  entityTypeField?: Input<
+    keyof {
+      [K in keyof TFields as TFields[K] extends 'string' ? K : never]: unknown
+    }
+  >
+
+  /**
+   * Defines the subset of table attributes that are relevant for keys and indexes.
    *
-   * While you can have fields field types other than `string`, `number`, and `binary`; you can only use these types for your indexes.
+   * You do **not** need to define all attributes stored in the table here—only
+   * those that participate in:
+   * - Primary keys
+   * - Global secondary indexes
+   * - Local secondary indexes
    *
-   * :::caution
-   * Field types cannot be changed after table creation. Any changes to field types will be ignored.
-   * :::
+   * The attribute types are limited to DynamoDB key-compatible types:
+   * `"string"`, `"number"`, and `"binary"`.
    *
    * @example
-   * ```js
+   * ```ts
    * {
    *   fields: {
    *     userId: "string",
-   *     noteId: "string"
+   *     noteId: "string",
+   *     createdAt: "number"
    *   }
    * }
    * ```
    */
   fields: Input<TFields>
+
   /**
-   * Define the table's primary index. You can only have one primary index.
+   * Describes the table's primary index (partition key and optional sort key).
+   *
+   * This definition is used for:
+   * - Type-safe key condition expressions
+   * - Validation of query and get operations
+   *
+   * The keys defined here must exist in `fields`.
    *
    * @example
-   * ```js
+   * ```ts
    * {
-   *   primaryIndex: { hashKey: "userId", rangeKey: "noteId" }
+   *   primaryIndex: {
+   *     hashKey: "userId",
+   *     rangeKey: "noteId"
+   *   }
    * }
    * ```
    */
   primaryIndex: Input<{
     /**
-     * The hash key field of the index. This field needs to be defined in the `fields`.
+     * The partition (hash) key of the table.
      */
     hashKey: Input<keyof NoInfer<TFields>>
+
     /**
-     * The range key field of the index. This field needs to be defined in the `fields`.
+     * The optional sort (range) key of the table.
      */
     rangeKey?: Input<keyof NoInfer<TFields>>
   }>
+
   /**
-   * Configure the table's global secondary indexes.
+   * Describes the table's global secondary indexes (GSIs).
    *
-   * You can have up to 20 global secondary indexes per table. And each global secondary index should have a unique name.
+   * These definitions are used to enable:
+   * - Index-aware query builders
+   * - Compile-time validation of index access patterns
+   *
+   * This configuration assumes the indexes already exist in DynamoDB.
    *
    * @example
-   *
-   * ```js
+   * ```ts
    * {
    *   globalIndexes: {
-   *     CreatedAtIndex: { hashKey: "userId", rangeKey: "createdAt" }
+   *     CreatedAtIndex: {
+   *       hashKey: "userId",
+   *       rangeKey: "createdAt"
+   *     }
    *   }
    * }
    * ```
@@ -68,51 +120,52 @@ export interface Table<TFields extends Record<string, 'string' | 'number' | 'bin
       string,
       Input<{
         /**
-         * The hash key field of the index. This field needs to be defined in the `fields`.
+         * The partition key of the global secondary index.
          */
         hashKey: Input<keyof NoInfer<TFields>>
+
         /**
-         * The range key field of the index. This field needs to be defined in the `fields`.
+         * The optional sort key of the global secondary index.
          */
         rangeKey?: Input<keyof NoInfer<TFields>>
+
         /**
-         * The fields to project into the index.
-         * @default `"all"`
+         * Describes which attributes are projected into the index.
+         *
+         * This information is used for validation and documentation purposes
+         * only; it does not affect runtime behavior in DynamoDB.
+         *
+         * @default "all"
+         *
          * @example
-         * Project only the key fields: `userId` and `createdAt`.
-         * ```js
-         * {
-         *   hashKey: "userId",
-         *   rangeKey: "createdAt",
-         *   projection: "keys-only"
-         * }
+         * ```ts
+         * projection: "keys-only"
          * ```
          *
-         * Project the `noteId` field in addition to the key fields.
-         * ```js
-         * {
-         *   hashKey: "userId",
-         *   rangeKey: "createdAt",
-         *   projection: ["noteId"]
-         * }
+         * ```ts
+         * projection: ["noteId"]
          * ```
          */
         projection?: Input<'all' | 'keys-only' | Input<string>[]>
       }>
     >
   >
+
   /**
-   * Configure the table's local secondary indexes.
+   * Describes the table's local secondary indexes (LSIs).
    *
-   * Unlike global indexes, local indexes use the same `hashKey` as the `primaryIndex` of the table.
+   * Local secondary indexes always share the same partition key as the
+   * table's primary index. Only the sort key differs.
    *
-   * You can have up to 5 local secondary indexes per table. And each local secondary index should have a unique name.
+   * These definitions are used purely for query validation and typing.
    *
    * @example
-   * ```js
+   * ```ts
    * {
    *   localIndexes: {
-   *     CreatedAtIndex: { rangeKey: "createdAt" }
+   *     CreatedAtIndex: {
+   *       rangeKey: "createdAt"
+   *     }
    *   }
    * }
    * ```
@@ -122,96 +175,43 @@ export interface Table<TFields extends Record<string, 'string' | 'number' | 'bin
       string,
       Input<{
         /**
-         * The range key field of the index. This field needs to be defined in the `fields`.
+         * The sort key of the local secondary index.
          */
         rangeKey: Input<keyof NoInfer<TFields>>
+
         /**
-         * The fields to project into the index.
-         * @default `"all"`
-         * @example
-         * Project only the key field: `createdAt`.
-         * ```js
-         * {
-         *   rangeKey: "createdAt",
-         *   projection: "keys-only"
-         * }
-         * ```
+         * Describes which attributes are projected into the index.
          *
-         * Project the `noteId` field in addition to the key field.
-         * ```js
-         * {
-         *   rangeKey: "createdAt",
-         *   projection: ["noteId"]
-         * }
-         * ```
+         * This is informational and used for type-safety only.
+         *
+         * @default "all"
          */
         projection?: Input<'all' | 'keys-only' | Input<string>[]>
       }>
     >
   >
+
   /**
-   * Enable [DynamoDB Streams](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html) for the table.
+   * The attribute name used to store the Time To Live (TTL) timestamp.
    *
-   * :::note
-   * Streams are not enabled by default since there's a cost attached to storing them.
-   * :::
+   * This field is expected to contain a Unix timestamp in seconds.
    *
-   * When an item in the table is modified, the stream captures the information and sends it to your subscriber function.
+   * The presence of this configuration allows the library to:
+   * - Validate writes involving TTL fields
+   * - Provide stronger typing for expiration-related helpers
    *
-   * :::tip
-   * The `new-and-old-images` stream type is a good default option since it has both the new and old items.
-   * :::
-   *
-   * You can configure what will be written to the stream:
-   *
-   * - `new-image`: The entire item after it was modified.
-   * - `old-image`: The entire item before it was modified.
-   * - `new-and-old-images`:	Both the new and the old items. A good default to use since it contains all the data.
-   * - `keys-only`: Only the keys of the fields of the modified items. If you are worried about the costs, you can use this since it stores the least amount of data.
-   * @default Disabled
-   * @example
-   * ```js
-   * {
-   *   stream: "new-and-old-images"
-   * }
-   * ```
-   */
-  stream?: Input<'keys-only' | 'new-image' | 'old-image' | 'new-and-old-images'>
-  /**
-   * The field in the table to store the _Time to Live_ or TTL timestamp in. This field should
-   * be of type `number`. When the TTL timestamp is reached, the item will be deleted.
-   *
-   * Read more about [Time to Live](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html).
+   * DynamoDB TTL behavior itself is managed entirely by AWS.
    *
    * @example
-   * Here the TTL field in our table is called `expireAt`.
-   * ```js
+   * ```ts
    * {
    *   ttl: "expireAt"
    * }
    * ```
    */
-  ttl?: Input<string>
-  /**
-   * Enable deletion protection for the table. When enabled, the table cannot be deleted.
-   *
-   * @example
-   * ```js
-   * {
-   *   deletionProtection: true,
-   * }
-   * ```
-   */
-  deletionProtection?: Input<boolean>
-  /**
-   * [Transform](/docs/components#transform) how this component creates its underlying
-   * resources.
-   */
-  transform?: {
-    /**
-     * Transform the DynamoDB Table resource.
-     */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    table?: any // Keeping it simple for now as per user request to focus on DynamoArgs
-  }
+  ttl?: Input<
+    keyof {
+      [K in keyof TFields as TFields[K] extends 'number' ? K : never]: unknown
+    }
+  >
 }

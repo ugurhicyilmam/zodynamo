@@ -9,7 +9,8 @@ describe('defineTable types', () => {
       fields: {
         pk: 'string',
         sk: 'number',
-        blob: 'binary'
+        blob: 'binary',
+        type: 'string'
       },
       primaryIndex: {
         hashKey: 'pk',
@@ -28,9 +29,8 @@ describe('defineTable types', () => {
           projection: ['pk']
         }
       },
-      stream: 'new-and-old-images',
-      ttl: 'sk', // Using number field for TTL
-      deletionProtection: true
+      ttl: 'sk',
+      entityTypeField: 'type'
     })
 
     const name = table.name
@@ -43,8 +43,8 @@ describe('defineTable types', () => {
     expectTypeOf(table.primaryIndex.rangeKey).toEqualTypeOf<'sk'>()
 
     // Check optional indexes
-    expectTypeOf(table.globalIndexes).not.toBeUndefined()
-    expectTypeOf(table.globalIndexes.gsi1.hashKey).toEqualTypeOf<'sk'>()
+    expectTypeOf(table.globalIndexes?.gsi1).not.toBeUndefined()
+    expectTypeOf(table.globalIndexes?.gsi1.hashKey).toEqualTypeOf<'sk'>()
   })
 
   it('should fail for invalid configurations', () => {

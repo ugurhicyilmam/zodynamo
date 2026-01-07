@@ -27,8 +27,9 @@ import { Prettify, ResolveDynamoType } from '~/types/utils'
  * // Result: { id: string; name: string; pk: string; sk?: string; type?: 'USER' }
  * ```
  */
-export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
-  InferEntity<T> &
+export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any, any, any>> =
+  Prettify<
+    InferEntity<T> &
     (T['table']['primaryIndex']['rangeKey'] extends string
       ? {
           [K in T['table']['primaryIndex']['hashKey']]: ResolveDynamoType<T['table']['fields'][K]>
@@ -42,5 +43,10 @@ export type InferDynamoItem<T extends Entity<any, any, any, any, any, any, any, 
       ? T['table']['entityTypeField'] extends string
         ? { [K in T['table']['entityTypeField']]: NonNullable<T['entityType']> }
         : {}
+      : {}) &
+    (Exclude<T['ttl'], undefined> extends (domain: any) => number | undefined
+      ? T['table']['ttl'] extends keyof T['table']['fields']
+        ? { [K in T['table']['ttl']]?: ResolveDynamoType<T['table']['fields'][K]> }
+        : {}
       : {})
->
+  >

@@ -116,6 +116,7 @@ export interface Entity<
   TLocalIndexRangeKeyFields extends Partial<
     Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
   >,
+  TTtl extends ((domain: z.infer<TSchema>) => number | undefined) | undefined,
   TEntityType extends string | undefined
 > {
   name: TName
@@ -129,5 +130,5 @@ export interface Entity<
   globalIndexes?: TGlobalIndexes
   localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
   entityType?: TEntityType
-  ttl?: (domain: z.infer<TSchema>) => number | undefined
+  ttl?: TTable['ttl'] extends keyof TTable['fields'] ? TTtl : never
 }

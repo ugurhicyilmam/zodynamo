@@ -9,9 +9,10 @@ describe('InferDynamoItem', () => {
   test('infers internal dynamo item type correctly', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string', sk: 'string', type: 'string' },
+      fields: { pk: 'string', sk: 'string', type: 'string', expireAt: 'number' },
       primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
-      entityTypeField: 'type'
+      entityTypeField: 'type',
+      ttl: 'expireAt'
     })
 
     const entity = defineEntity(table, {
@@ -27,7 +28,8 @@ describe('InferDynamoItem', () => {
           calculate: () => 'PROFILE'
         }
       },
-      entityType: 'USER'
+      entityType: 'USER',
+      ttl: domain => (domain.name.length > 5 ? 3600 : 333)
     })
 
     type Internal = InferDynamoItem<typeof entity>
@@ -39,7 +41,8 @@ describe('InferDynamoItem', () => {
       name: 'Alice',
       pk: 'USER#1',
       sk: 'PROFILE',
-      type: 'USER'
+      type: 'USER',
+      expireAt: 123
     }
 
     // @ts-expect-error - missing pk

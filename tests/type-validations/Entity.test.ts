@@ -147,8 +147,9 @@ describe('Entity types', () => {
   test('ttl receives correct domain type', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string' },
-      primaryIndex: { hashKey: 'pk' }
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
     })
 
     defineEntity(table, {
@@ -174,8 +175,9 @@ describe('Entity types', () => {
   test('ttl return type is number | undefined', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string' },
-      primaryIndex: { hashKey: 'pk' }
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
     })
 
     defineEntity(table, {
@@ -195,8 +197,9 @@ describe('Entity types', () => {
   test('ttl field is optional', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string' },
-      primaryIndex: { hashKey: 'pk' }
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
     })
 
     // Should not error when ttl is omitted
@@ -209,6 +212,27 @@ describe('Entity types', () => {
           calculate: ({ id }) => `USER#${id}`
         }
       }
+    })
+  })
+
+  test('ttl requires table ttl field', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string' },
+      primaryIndex: { hashKey: 'pk' }
+    })
+
+    defineEntity(table, {
+      name: 'Score',
+      schema: z.object({ id: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `SCORE#${id}`
+        }
+      },
+      // @ts-expect-error - table has no ttl field configured
+      ttl: () => 3600
     })
   })
 })

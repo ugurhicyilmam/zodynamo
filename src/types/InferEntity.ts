@@ -22,6 +22,6 @@ import { Entity } from '~/types/Entity'
  * // Result: { id: string; name: string }
  * ```
  */
-export type InferEntity<T extends Entity<any, any, any, any, any, any, any, any>> = z.infer<
+export type InferEntity<T extends Entity<any, any, any, any, any, any, any, any, any>> = z.infer<
   T['schema']
 >

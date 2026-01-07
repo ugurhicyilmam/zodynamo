@@ -9,13 +9,13 @@ import { Prettify } from './utils'
 type PickByPathsOrEmpty<T, P> = [P] extends [never] ? {} : PickByPaths<T, Extract<P, string>>
 
 /** @internal */
-type LocalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any>> = Extract<
+type LocalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any, any>> = Extract<
   T['localIndexes'],
   Record<string, any>
 >
 
 /** @internal */
-type GlobalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any>> = Extract<
+type GlobalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any, any>> = Extract<
   T['globalIndexes'],
   Record<string, any>
 >
@@ -33,7 +33,9 @@ type GlobalIndexesOf<T extends Entity<any, any, any, any, any, any, any, any>> =
  * // Result: fields referenced in hashKey.fields
  * ```
  */
-export type InferHashKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
+export type InferHashKeyFields<
+  T extends Entity<any, any, any, any, any, any, any, any, any>
+> = Prettify<
   PickByPathsOrEmpty<InferEntity<T>, T['key']['hashKey']['fields'][number]>
 >
 
@@ -44,7 +46,9 @@ export type InferHashKeyFields<T extends Entity<any, any, any, any, any, any, an
  *
  * @template T - The Entity type
  */
-export type InferRangeKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> =
+export type InferRangeKeyFields<
+  T extends Entity<any, any, any, any, any, any, any, any, any>
+> =
   Prettify<
     T['key'] extends { rangeKey: { fields: readonly unknown[] } }
       ? PickByPathsOrEmpty<InferEntity<T>, T['key']['rangeKey']['fields'][number]>
@@ -58,7 +62,7 @@ export type InferRangeKeyFields<T extends Entity<any, any, any, any, any, any, a
  *
  * @template T - The Entity type
  */
-export type InferKeyFields<T extends Entity<any, any, any, any, any, any, any, any>> = Prettify<
+export type InferKeyFields<T extends Entity<any, any, any, any, any, any, any, any, any>> = Prettify<
   InferHashKeyFields<T> & InferRangeKeyFields<T>
 >
 
@@ -70,8 +74,8 @@ export type InferKeyFields<T extends Entity<any, any, any, any, any, any, any, a
  * @template T - The Entity type
  * @returns Union of local index names, or never if none defined
  */
-export type InferLocalIndexNames<T extends Entity<any, any, any, any, any, any, any, any>> =
-  T extends Entity<any, any, any, any, any, any, infer TLocalIndexRangeKeyFields, any>
+export type InferLocalIndexNames<T extends Entity<any, any, any, any, any, any, any, any, any>> =
+  T extends Entity<any, any, any, any, any, any, infer TLocalIndexRangeKeyFields, any, any>
     ? keyof TLocalIndexRangeKeyFields extends never
       ? never
       : Extract<keyof TLocalIndexRangeKeyFields, string>
@@ -83,7 +87,9 @@ export type InferLocalIndexNames<T extends Entity<any, any, any, any, any, any, 
  * @template T - The Entity type
  * @returns Object mapping index names to their required field subsets
  */
-export type InferLocalIndexFields<T extends Entity<any, any, any, any, any, any, any, any>> =
+export type InferLocalIndexFields<
+  T extends Entity<any, any, any, any, any, any, any, any, any>
+> =
   InferLocalIndexNames<T> extends never
     ? {}
     : LocalIndexesOf<T> extends Record<string, { rangeKey: { fields: readonly unknown[] } }>
@@ -101,7 +107,7 @@ export type InferLocalIndexFields<T extends Entity<any, any, any, any, any, any,
  * @template TIndexName - The name of the local index
  */
 export type InferLocalIndexRangeKeyFields<
-  T extends Entity<any, any, any, any, any, any, any, any>,
+  T extends Entity<any, any, any, any, any, any, any, any, any>,
   TIndexName extends InferLocalIndexNames<T>
 > =
   LocalIndexesOf<T> extends Record<string, { rangeKey: { fields: readonly unknown[] } }>
@@ -121,7 +127,7 @@ export type InferLocalIndexRangeKeyFields<
  * @template T - The Entity type
  * @returns Union of global index names, or never if none defined
  */
-export type InferGlobalIndexNames<T extends Entity<any, any, any, any, any, any, any, any>> =
+export type InferGlobalIndexNames<T extends Entity<any, any, any, any, any, any, any, any, any>> =
   T['globalIndexes'] extends Record<string, any> ? Extract<keyof T['globalIndexes'], string> : never
 
 /**
@@ -131,7 +137,7 @@ export type InferGlobalIndexNames<T extends Entity<any, any, any, any, any, any,
  * @template TIndexName - The name of the global index
  */
 export type InferGlobalIndexHashKeyFields<
-  T extends Entity<any, any, any, any, any, any, any, any>,
+  T extends Entity<any, any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>
 > =
   GlobalIndexesOf<T> extends Record<string, { hashKey: { fields: readonly unknown[] } }>
@@ -152,7 +158,7 @@ export type InferGlobalIndexHashKeyFields<
  * @template TIndexName - The name of the global index
  */
 export type InferGlobalIndexRangeKeyFields<
-  T extends Entity<any, any, any, any, any, any, any, any>,
+  T extends Entity<any, any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>
 > =
   GlobalIndexesOf<T> extends Record<string, any>
@@ -175,7 +181,7 @@ export type InferGlobalIndexRangeKeyFields<
  * @template TIndexName - The name of the global index
  */
 export type InferGlobalIndexKeyFields<
-  T extends Entity<any, any, any, any, any, any, any, any>,
+  T extends Entity<any, any, any, any, any, any, any, any, any>,
   TIndexName extends InferGlobalIndexNames<T>
 > = Prettify<
   InferGlobalIndexHashKeyFields<T, TIndexName> & InferGlobalIndexRangeKeyFields<T, TIndexName>

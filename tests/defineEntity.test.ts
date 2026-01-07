@@ -176,8 +176,9 @@ describe('defineEntity', () => {
   test('entity with conditional TTL', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string' },
-      primaryIndex: { hashKey: 'pk' }
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
     })
 
     const entity = defineEntity(table, {
@@ -200,8 +201,9 @@ describe('defineEntity', () => {
   test('entity without TTL', () => {
     const table = defineTable({
       name: 'TestTable',
-      fields: { pk: 'string' },
-      primaryIndex: { hashKey: 'pk' }
+      fields: { pk: 'string', expireAt: 'number' },
+      primaryIndex: { hashKey: 'pk' },
+      ttl: 'expireAt'
     })
 
     const entity = defineEntity(table, {

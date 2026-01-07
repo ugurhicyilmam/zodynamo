@@ -45,6 +45,10 @@ type EntityLocalIndexRangeKeyFields<TTable extends Table<any>, TSchema extends Z
   Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
 >
 
+type EntityTtlConstraint<TTable extends Table<any>> = TTable['ttl'] extends keyof TTable['fields']
+  ? {}
+  : { ttl?: never }
+
 export function defineEntity<
   TTable extends Table<any>,
   TName extends string,
@@ -53,6 +57,9 @@ export function defineEntity<
   const TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[] = [],
   const TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>> = {},
   const TLocalIndexRangeKeyFields extends EntityLocalIndexRangeKeyFields<TTable, TSchema> = {},
+  TTtl extends ((domain: z.infer<TSchema>) => number | undefined) | undefined = (
+    domain: z.infer<TSchema>
+  ) => number | undefined,
   const TEntityType extends string | undefined = undefined
 >(
   table: TTable,
@@ -61,8 +68,9 @@ export function defineEntity<
     schema: TSchema
     key: EntityKeyDefinition<TTable, TSchema, THashKeyFields, TRangeKeyFields>
     entityType?: EntityTypeOption<TTable, TEntityType>
-    ttl?: (domain: z.infer<TSchema>) => number | undefined
-  } & (GlobalIndexName<TTable> extends never
+    ttl?: TTtl
+  } & EntityTtlConstraint<TTable> &
+    (GlobalIndexName<TTable> extends never
     ? { globalIndexes?: never }
     : {
         globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, TSchema>
@@ -79,6 +87,7 @@ export function defineEntity<
     TRangeKeyFields,
     TGlobalIndexes,
     TLocalIndexRangeKeyFields,
+    TTtl,
     TEntityType
   >,
   'globalIndexes'

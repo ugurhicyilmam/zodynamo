@@ -1,4 +1,4 @@
-import { Table } from '~/types/Table'
+import { Table } from '../types/Table'
 
 export function defineTable<
   const TOptions extends {
@@ -7,7 +7,6 @@ export function defineTable<
 >(options: TOptions & Table<TOptions['fields']>) {
   return {
     ...options,
-    name: options.name,
-    entityTypeField: options.entityTypeField ?? 'entityType'
+    name: options.name
   } as const
 }

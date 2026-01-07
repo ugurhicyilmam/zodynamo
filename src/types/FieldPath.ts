@@ -1,15 +1,4 @@
-type Primitive =
-  | string
-  | number
-  | boolean
-  | bigint
-  | symbol
-  | null
-  | undefined
-  | Date
-  | Function
-
-type IsPlainObject<T> = T extends Primitive ? false : T extends readonly unknown[] ? false : T extends object ? true : false
+import { IsPlainObject, Prettify, UnionToIntersection } from './utils'
 
 export type FieldPath<T> = T extends object
   ? {
@@ -28,12 +17,6 @@ export type PickByPath<T, P extends string> = P extends `${infer Head}.${infer R
   : P extends keyof T
     ? Prop<T, P, T[P]>
     : never
-
-type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (arg: infer I) => void ? I : never
-
-type Prettify<T> = {
-  [K in keyof T]: T[K]
-} & {}
 
 export type PickByPaths<T, P extends string> = Prettify<
   UnionToIntersection<P extends unknown ? PickByPath<T, P> : never>

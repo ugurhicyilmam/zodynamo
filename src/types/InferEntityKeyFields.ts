@@ -1,10 +1,7 @@
 import { Entity } from './Entity'
 import { PickByPaths } from './FieldPath'
 import { InferEntity } from './InferEntity'
-
-type Prettify<T> = {
-  [K in keyof T]: T[K]
-} & {}
+import { Prettify } from './utils'
 
 type PickByPathsOrEmpty<T, P> = [P] extends [never] ? {} : PickByPaths<T, Extract<P, string>>
 

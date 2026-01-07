@@ -1,7 +1,7 @@
 /**
  * Placeholder for now. This is intentionally a pass-through type so the API can evolve later (for example, to support lazy or computed inputs).
  */
-export type Input<T> = T
+import { Input } from './utils'
 
 /**
  * Describes the logical schema of a DynamoDB table as understood by this library.

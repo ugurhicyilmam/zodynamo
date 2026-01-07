@@ -1,10 +1,9 @@
 import { Table } from '../types/Table'
 
 export function defineTable<
-  const TOptions extends {
-    fields: Record<string, 'string' | 'number' | 'binary'>
-  }
->(options: TOptions & Table<TOptions['fields']>) {
+  const TFields extends Record<string, 'string' | 'number' | 'binary'>,
+  const TOptions extends Table<TFields>
+>(options: TOptions & { fields: TFields }) {
   return {
     ...options,
     name: options.name

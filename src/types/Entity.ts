@@ -1,7 +1,12 @@
 import { ZodSchema, z } from 'zod'
 
 import { Table } from './Table'
-import { EntityHashKeyValue, EntityRangeKeyValue } from './EntityKey'
+import {
+  EntityHashKeyValue,
+  EntityLocalIndexRangeKeyValue,
+  EntityRangeKeyValue,
+  LocalIndexName
+} from './EntityKey'
 import { FieldPath, PickByPaths } from './FieldPath'
 
 type KeyPartDefinition<
@@ -12,6 +17,32 @@ type KeyPartDefinition<
   fields: TKeyFields
   calculate: (item: PickByPaths<z.infer<TSchema>, TKeyFields[number]>) => TResult
 }
+
+export type EntityLocalIndexesDefinition<
+  TTable extends Table<any>,
+  TSchema extends ZodSchema,
+  TLocalIndexRangeKeyFields extends Partial<
+    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+  >
+> = {
+  [K in keyof TLocalIndexRangeKeyFields]: {
+    rangeKey: KeyPartDefinition<
+      TSchema,
+      Exclude<TLocalIndexRangeKeyFields[K], undefined>,
+      EntityLocalIndexRangeKeyValue<TTable, Extract<K, LocalIndexName<TTable>>>
+    >
+  }
+}
+
+type EntityLocalIndexesOption<
+  TTable extends Table<any>,
+  TSchema extends ZodSchema,
+  TLocalIndexRangeKeyFields extends Partial<
+    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+  >
+> = LocalIndexName<TTable> extends never
+  ? never
+  : EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
 
 /**
  * Represents a strictly typed entity bound to a specific DynamoDB table.
@@ -27,6 +58,9 @@ export interface Entity<
   TSchema extends ZodSchema,
   THashKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
   TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
+  TLocalIndexRangeKeyFields extends Partial<
+    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+  >,
   TEntityType extends string | undefined
 > {
   name: TName
@@ -37,5 +71,6 @@ export interface Entity<
   } & (TTable['primaryIndex']['rangeKey'] extends string
     ? { rangeKey: KeyPartDefinition<TSchema, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
     : { rangeKey?: never })
+  localIndexes?: EntityLocalIndexesOption<TTable, TSchema, TLocalIndexRangeKeyFields>
   entityType?: TEntityType
 }

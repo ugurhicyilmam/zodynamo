@@ -96,4 +96,42 @@ describe('defineEntity', () => {
 
     expect(entity.entityType).toBe('USER')
   })
+
+  test('entity with local secondary index', () => {
+    const table = defineTable({
+      name: 'TestTable',
+      fields: { pk: 'string', sk: 'string', lsi1sk: 'string' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+      localIndexes: {
+        LSI1: { rangeKey: 'lsi1sk' }
+      }
+    })
+
+    const entity = defineEntity(table, {
+      name: 'User',
+      schema: z.object({ id: z.string(), createdAt: z.string() }),
+      key: {
+        hashKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `USER#${id}`
+        },
+        rangeKey: {
+          fields: ['id'],
+          calculate: ({ id }) => `PROFILE#${id}`
+        }
+      },
+      localIndexes: {
+        LSI1: {
+          rangeKey: {
+            fields: ['createdAt'],
+            calculate: ({ createdAt }) => `CREATED#${createdAt}`
+          }
+        }
+      }
+    })
+
+    expect(entity.localIndexes?.LSI1.rangeKey.calculate({ createdAt: '1' })).toEqual(
+      'CREATED#1'
+    )
+  })
 })

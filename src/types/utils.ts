@@ -1,3 +1,22 @@
+import type { Simplify } from 'type-fest'
+
+/**
+ * Re-export Simplify as Prettify for backward compatibility.
+ *
+ * Type utility that improves the readability of complex types in IDE tooltips.
+ * Expands object types to show their full structure instead of displaying
+ * them as type aliases or intersections.
+ *
+ * @template T - The type to prettify
+ *
+ * @example
+ * ```ts
+ * type Complex = { a: string } & { b: number }
+ * type Pretty = Prettify<Complex> // Displays as { a: string; b: number }
+ * ```
+ */
+export type Prettify<T> = Simplify<T>
+
 /**
  * Placeholder type that currently acts as a pass-through.
  *
@@ -14,12 +33,14 @@
 export type Input<T> = T
 
 /**
- * Union of all primitive types in TypeScript, including non-object types
- * like Date and Function.
+ * Union of types that should not be traversed when generating object paths.
  *
- * Used internally for type narrowing and object detection.
+ * Includes JavaScript primitives plus Date and Function, which are technically
+ * objects but should be treated as leaf values for path generation.
+ *
+ * Used internally by `IsPlainObject` for type narrowing.
  */
-export type Primitive =
+export type NonTraversableType =
   | string
   | number
   | boolean
@@ -44,7 +65,7 @@ export type Primitive =
  * type C = IsPlainObject<string[]> // false
  * ```
  */
-export type IsPlainObject<T> = T extends Primitive
+export type IsPlainObject<T> = T extends NonTraversableType
   ? false
   : T extends readonly unknown[]
     ? false
@@ -57,6 +78,9 @@ export type IsPlainObject<T> = T extends Primitive
  *
  * This is a powerful type-level operation commonly used for merging
  * multiple types together.
+ *
+ * Note: We keep a custom implementation rather than using type-fest's version
+ * because type-fest adds `& Union` which changes type inference behavior.
  *
  * @template U - The union type to convert
  *
@@ -71,24 +95,6 @@ export type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : nev
 ) => void
   ? I
   : never
-
-/**
- * Type utility that improves the readability of complex types in IDE tooltips.
- *
- * Expands object types to show their full structure instead of displaying
- * them as type aliases or intersections.
- *
- * @template T - The type to prettify
- *
- * @example
- * ```ts
- * type Complex = { a: string } & { b: number }
- * type Pretty = Prettify<Complex> // Displays as { a: string; b: number }
- * ```
- */
-export type Prettify<T> = {
-  [K in keyof T]: T[K]
-} & {}
 
 /**
  * Resolves a DynamoDB attribute type string to its corresponding TypeScript type.

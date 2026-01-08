@@ -71,7 +71,7 @@ export function defineEntity<
     | EntityGeneratedFields<
         TTable,
         TGlobalIndexes,
-        EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+        EntityLocalIndexesDefinition<TTable, z.infer<TSchema>, TLocalIndexRangeKeyFields>,
         TTtl,
         TEntityType
       >
@@ -89,7 +89,7 @@ export function defineEntity<
       EntityGeneratedFields<
         TTable,
         TGlobalIndexes,
-        EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+        EntityLocalIndexesDefinition<TTable, z.infer<TSchema>, TLocalIndexRangeKeyFields>,
         TTtl,
         TEntityType
       >,
@@ -99,16 +99,22 @@ export function defineEntity<
     (GlobalIndexName<TTable> extends never
       ? { globalIndexes?: never }
       : {
-          globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, TSchema>
+          globalIndexes?: TGlobalIndexes & EntityGlobalIndexesDefinition<TTable, z.infer<TSchema>>
         }) &
     (LocalIndexName<TTable> extends never
       ? { localIndexes?: never }
-      : { localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields> })
+      : {
+          localIndexes?: EntityLocalIndexesDefinition<
+            TTable,
+            z.infer<TSchema>,
+            TLocalIndexRangeKeyFields
+          >
+        })
 ): Omit<
   Entity<
     TTable,
     TName,
-    TSchema,
+    z.infer<TSchema>,
     THashKeyFields,
     TRangeKeyFields,
     TGlobalIndexes,
@@ -122,7 +128,7 @@ export function defineEntity<
           EntityGeneratedFields<
             TTable,
             TGlobalIndexes,
-            EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>,
+            EntityLocalIndexesDefinition<TTable, z.infer<TSchema>, TLocalIndexRangeKeyFields>,
             TTtl,
             TEntityType
           >,

@@ -524,6 +524,8 @@ describe('Query DSL Type Validations', () => {
       .partitionValue('USER#1')
       .rangeNoCondition()
 
+    new Query().entity(EntityWithNestedData).gsi
+
     describe('Basic Operators', () => {
       it('supports comparison operators', () => {
         baseQuery.options({ filter: { attr: 'metadata.version', eq: 1 } }).exec()

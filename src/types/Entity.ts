@@ -1,4 +1,4 @@
-import { ZodSchema, z } from 'zod'
+import { ZodType } from 'zod'
 
 import {
   EntityGlobalIndexHashKeyValue,
@@ -16,20 +16,10 @@ import { Prettify } from './utils'
 /**
  * Defines how to construct a key part (hash or range) from entity fields.
  *
- * @template TSchema - The Zod schema for the entity
- * @template TKeyFields - The field paths used to calculate this key part
- * @template TResult - The resulting DynamoDB key type (string or number)
- *
- * @property fields - Array of dot-notation field paths required for calculation
- * @property calculate - Function that computes the key value from the specified fields
  */
-type KeyPartDefinition<
-  TSchema extends ZodSchema,
-  TKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
-  TResult
-> = {
+type KeyPartDefinition<TItem, TKeyFields extends readonly KeyFieldPath<TItem>[], TResult> = {
   fields: TKeyFields
-  calculate: (item: PickByPaths<z.infer<TSchema>, TKeyFields[number]>) => TResult
+  calculate: (item: PickByPaths<TItem, TKeyFields[number]>) => TResult
 }
 
 /**
@@ -44,14 +34,14 @@ type KeyPartDefinition<
  */
 export type EntityLocalIndexesDefinition<
   TTable extends Table<any>,
-  TSchema extends ZodSchema,
+  TItem,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<TItem>[]>
   >
 > = {
   [K in keyof TLocalIndexRangeKeyFields]: {
     rangeKey: KeyPartDefinition<
-      TSchema,
+      TItem,
       Exclude<TLocalIndexRangeKeyFields[K], undefined>,
       EntityLocalIndexRangeKeyValue<TTable, Extract<K, LocalIndexName<TTable>>>
     >
@@ -68,19 +58,19 @@ export type EntityLocalIndexesDefinition<
  * @template TTable - The table configuration
  * @template TSchema - The entity's Zod schema
  */
-export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema extends ZodSchema> = {
+export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TItem> = {
   [K in GlobalIndexName<TTable>]?: {
     hashKey: KeyPartDefinition<
-      TSchema,
-      readonly KeyFieldPath<z.infer<TSchema>>[],
+      TItem,
+      readonly KeyFieldPath<TItem>[],
       EntityGlobalIndexHashKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
     >
   } & (TTable['globalIndexes'] extends Record<string, any>
     ? TTable['globalIndexes'][Extract<K, GlobalIndexName<TTable>>]['rangeKey'] extends string
       ? {
           rangeKey: KeyPartDefinition<
-            TSchema,
-            readonly KeyFieldPath<z.infer<TSchema>>[],
+            TItem,
+            readonly KeyFieldPath<TItem>[],
             EntityGlobalIndexRangeKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
           >
         }
@@ -90,14 +80,14 @@ export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema ext
 
 type EntityLocalIndexesOption<
   TTable extends Table<any>,
-  TSchema extends ZodSchema,
+  TItem,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<TItem>[]>
   >
 > =
   LocalIndexName<TTable> extends never
     ? never
-    : EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
+    : EntityLocalIndexesDefinition<TTable, TItem, TLocalIndexRangeKeyFields>
 
 /**
  * Represents a strictly typed entity bound to a specific DynamoDB table.
@@ -110,27 +100,27 @@ type EntityLocalIndexesOption<
 export interface Entity<
   TTable extends Table<any>,
   TName extends string,
-  TSchema extends ZodSchema,
-  THashKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
-  TRangeKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
+  TItem,
+  THashKeyFields extends readonly KeyFieldPath<TItem>[],
+  TRangeKeyFields extends readonly KeyFieldPath<TItem>[],
   TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>>,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<TItem>[]>
   >,
-  TTtl extends ((domain: z.infer<TSchema>) => number | undefined) | undefined,
+  TTtl extends ((domain: TItem) => number | undefined) | undefined,
   TEntityType extends string | undefined,
   TTransform = undefined
 > {
   name: TName
   table: TTable
-  schema: TSchema
+  schema: ZodType<TItem>
   key: {
-    hashKey: KeyPartDefinition<TSchema, THashKeyFields, EntityHashKeyValue<TTable>>
+    hashKey: KeyPartDefinition<TItem, THashKeyFields, EntityHashKeyValue<TTable>>
   } & (TTable['primaryIndex']['rangeKey'] extends string
-    ? { rangeKey: KeyPartDefinition<TSchema, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
+    ? { rangeKey: KeyPartDefinition<TItem, TRangeKeyFields, EntityRangeKeyValue<TTable>> }
     : { rangeKey?: never })
   globalIndexes?: TGlobalIndexes
-  localIndexes?: EntityLocalIndexesDefinition<TTable, TSchema, TLocalIndexRangeKeyFields>
+  localIndexes?: EntityLocalIndexesDefinition<TTable, TItem, TLocalIndexRangeKeyFields>
   entityType: TEntityType
   ttl?: TTable['ttl'] extends keyof TTable['fields'] ? TTtl : never
   transform?: TTransform

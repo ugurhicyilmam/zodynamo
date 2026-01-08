@@ -1,6 +1,14 @@
 import { Entity } from '../../types/Entity'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
+/**
+ * Builds a query for the Primary Index of a table.
+ *
+ * @template E - The Entity being queried.
+ * @template Output - The configured output format.
+ * @template State - The current state of the builder (enforces partition key requirement).
+ */
+import { BaseQueryBuilder } from './BaseQuery'
 import {
   QueryKeyTypes,
   QueryOutputMode,
@@ -25,38 +33,20 @@ export type PrimaryQuery<
   Modifiers extends string = never
 > = ResolveQueryChain<BasePrimaryQuery<E, Output, State, Modifiers>, State, Modifiers, Output>
 
-/**
- * Builds a query for the Primary Index of a table.
- *
- * @template E - The Entity being queried.
- * @template Output - The configured output format.
- * @template State - The current state of the builder (enforces partition key requirement).
- */
 export class PrimaryQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> {
-  protected _entity: E
-  protected _output: Output
-  protected _state!: State
-
+> extends BaseQueryBuilder<E, Output, State, Modifiers> {
   constructor(entity: E) {
-    this._entity = entity
-    this._output = 'entity' as any
+    super(entity)
   }
 
   /**
    * Set the partition key value.
    * For the primary index, we can optionally infer this from a domain object if needed,
    * but here we expose the direct value setter or a "from" helper.
-   */
-  /**
-   * Sets the partition key using the input object for the key calculation function.
-   * NOTE: This does NOT use the input as the key itself, but computes the key from it.
-   *
-   * @param domain - The input object required to calculate the partition key.
    */
   partitionFrom(
     domain: E['key']['hashKey']['calculate'] extends (item: infer Input) => any ? Input : never
@@ -190,51 +180,28 @@ export class PrimaryQueryBuilder<
     return this as any
   }
 
-  /**
-   * Limits the number of items returned.
-   *
-   * @param limit - The maximum number of items.
-   */
   limit(limit: number): PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
-    return this as any
+    return super.limit(limit)
   }
 
-  /**
-   * Sets the start key for pagination.
-   *
-   * @param key - The LastEvaluatedKey from a previous response.
-   */
   startKey(
     key: Record<string, any>
   ): PrimaryQuery<E, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
-    return this as any
+    return super.startKey(key)
   }
 
-  /**
-   * Switches the output mode to 'raw'.
-   * The query will return raw DynamoDB items (no typings/transformations applied).
-   */
   raw(): PrimaryQuery<E, 'raw', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.raw()
   }
 
-  /**
-   * Selects specific fields to return from the entity.
-   *
-   * @param fields - An array of field names to include.
-   */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
   ): PrimaryQuery<E, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.select(fields)
   }
 
-  /**
-   * Switches the output mode to 'count'.
-   * The query will return the count of items matching the condition.
-   */
   count(): PrimaryQuery<E, 'count', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.count()
   }
 
   /**

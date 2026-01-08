@@ -146,6 +146,16 @@ describe('Query DSL Type Validations', () => {
     // @ts-expect-error - consistentRead not allowed on GSI
     query.gsi('GSI1').consistentRead()
 
+    query
+      .lsi('LSI1')
+      .partitionValue('USER#123')
+      .sortBetween(18, 25)
+      .consistentRead()
+      .limit(3)
+      .raw()
+      .startKey({})
+      .exec()
+
     // @ts-expect-error - sort ops not allowed on GSI without sort key
     query.gsi('GSI2').sortBeginsWith('foo')
 

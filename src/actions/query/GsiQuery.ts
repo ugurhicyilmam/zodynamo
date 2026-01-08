@@ -2,6 +2,15 @@ import { Entity } from '../../types/Entity'
 import { GlobalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
+/**
+ * Builds a query for a Global Secondary Index (GSI) of a table.
+ *
+ * @template E - The Entity being queried.
+ * @template IndexName - The name of the GSI.
+ * @template Output - The configured output format.
+ * @template State - The current state of the builder (enforces partition key requirement).
+ */
+import { BaseQueryBuilder } from './BaseQuery'
 import {
   QueryKeyTypes,
   QueryOutputMode,
@@ -33,33 +42,20 @@ export type GsiQuery<
   Output
 >
 
-/**
- * Builds a query for a Global Secondary Index (GSI) of a table.
- *
- * @template E - The Entity being queried.
- * @template IndexName - The name of the GSI.
- * @template Output - The configured output format.
- * @template State - The current state of the builder (enforces partition key requirement).
- */
 export class GsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> {
-  protected _entity: E
+> extends BaseQueryBuilder<E, Output, State, Modifiers> {
   protected _indexName: IndexName
-  protected _output: Output
-  protected _state!: State
 
   constructor(entity: E, indexName: IndexName) {
-    this._entity = entity
+    super(entity)
     this._indexName = indexName
-    this._output = 'entity' as any
   }
 
-  /* Partition Key - Must be provided explicitly for GSI */
   /* Partition Key - Must be provided explicitly for GSI */
 
   /**
@@ -181,58 +177,30 @@ export class GsiQueryBuilder<
 
   // No consistentRead on GSI
 
-  /**
-   * Limits the number of items returned.
-   *
-   * @param limit - The maximum number of items.
-   */
   limit(limit: number): GsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
-    return this as any
+    return super.limit(limit)
   }
 
-  /**
-   * Sets the start key for pagination.
-   *
-   * @param key - The LastEvaluatedKey from a previous response.
-   */
   startKey(
     key: Record<string, any>
   ): GsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
-    return this as any
+    return super.startKey(key)
   }
 
-  /**
-   * Switches the output mode to 'raw'.
-   * The query will return raw DynamoDB items.
-   */
   raw(): GsiQuery<E, IndexName, 'raw', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.raw()
   }
 
-  /**
-   * Selects specific fields to return from the entity.
-   *
-   * @param fields - An array of field names to include.
-   */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
   ): GsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.select(fields)
   }
 
-  /**
-   * Switches the output mode to 'count'.
-   * The query will return the count of items matching the condition.
-   */
   count(): GsiQuery<E, IndexName, 'count', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.count()
   }
 
-  /**
-   * Executes the query.
-   *
-   * @returns A promise resolving to the results based on the output mode.
-   */
   exec(
     this:
       | GsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers>
@@ -251,6 +219,6 @@ export class GsiQueryBuilder<
             ? number
             : never
   > {
-    return Promise.resolve([] as any) as any
+    return super.exec()
   }
 }

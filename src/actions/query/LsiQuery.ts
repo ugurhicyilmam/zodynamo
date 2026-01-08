@@ -2,6 +2,15 @@ import { Entity } from '../../types/Entity'
 import { LocalIndexName } from '../../types/EntityKey'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
+/**
+ * Builds a query for a Local Secondary Index (LSI) of a table.
+ *
+ * @template E - The Entity being queried.
+ * @template IndexName - The name of the LSI.
+ * @template Output - The configured output format.
+ * @template State - The current state of the builder (enforces partition key requirement).
+ */
+import { BaseQueryBuilder } from './BaseQuery'
 import { QueryKeyTypes, QueryOutputMode, QueryState, ResolveQueryChain } from './types'
 
 export type LsiQuery<
@@ -17,33 +26,19 @@ export type LsiQuery<
   Output
 >
 
-/**
- * Builds a query for a Local Secondary Index (LSI) of a table.
- *
- * @template E - The Entity being queried.
- * @template IndexName - The name of the LSI.
- * @template Output - The configured output format.
- * @template State - The current state of the builder (enforces partition key requirement).
- */
 export class LsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL',
   Modifiers extends string = never
-> {
-  protected _entity: E
+> extends BaseQueryBuilder<E, Output, State, Modifiers> {
   protected _indexName: IndexName
-  protected _output: Output
-  protected _state!: State
 
   constructor(entity: E, indexName: IndexName) {
-    this._entity = entity
+    super(entity)
     this._indexName = indexName
-    this._output = 'entity' as any
   }
-
-  /* Partition Key - LSI shares the table's partition key */
 
   /* Partition Key - LSI shares the table's partition key */
 
@@ -68,8 +63,6 @@ export class LsiQueryBuilder<
   ): LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
     return this as any
   }
-
-  /* Sort Key Operations - specific to the LSI */
 
   /* Sort Key Operations - specific to the LSI */
 
@@ -166,58 +159,30 @@ export class LsiQueryBuilder<
     return this as any
   }
 
-  /**
-   * Limits the number of items returned.
-   *
-   * @param limit - The maximum number of items.
-   */
   limit(limit: number): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
-    return this as any
+    return super.limit(limit)
   }
 
-  /**
-   * Sets the start key for pagination.
-   *
-   * @param key - The LastEvaluatedKey from a previous response.
-   */
   startKey(
     key: Record<string, any>
   ): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
-    return this as any
+    return super.startKey(key)
   }
 
-  /**
-   * Switches the output mode to 'raw'.
-   * The query will return raw DynamoDB items.
-   */
   raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.raw()
   }
 
-  /**
-   * Selects specific fields to return from the entity.
-   *
-   * @param fields - An array of field names to include.
-   */
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
   ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.select(fields)
   }
 
-  /**
-   * Switches the output mode to 'count'.
-   * The query will return the count of items matching the condition.
-   */
   count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET', Modifiers> {
-    return this as any
+    return super.count()
   }
 
-  /**
-   * Executes the query.
-   *
-   * @returns A promise resolving to the results based on the output mode.
-   */
   exec(
     this:
       | LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers>
@@ -236,6 +201,6 @@ export class LsiQueryBuilder<
             ? number
             : never
   > {
-    return Promise.resolve([] as any) as any
+    return super.exec()
   }
 }

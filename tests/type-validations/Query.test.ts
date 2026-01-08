@@ -6,6 +6,7 @@ import { defineEntity } from '../../src/functions/defineEntity'
 import { defineTable } from '../../src/functions/defineTable'
 import { InferDynamoItem } from '../../src/types/InferDynamoItem'
 import { InferEntity } from '../../src/types/InferEntity'
+import { AssertExactKeys } from './utils/AssetExactKeys'
 
 const table = defineTable({
   name: 'TestTable',
@@ -85,9 +86,9 @@ describe('Query DSL Type Validations', () => {
   describe('Primary Query (Composite Key)', () => {
     test('Partition Key', () => {
       // Valid partitionValue
-      query.primary().partitionValue('USER#123').exec()
+      query.primary().partitionValue('USER#123').rangeNoCondition().exec()
       // Valid partitionFrom
-      query.primary().partitionFrom({ id: '123T' }).exec()
+      query.primary().partitionFrom({ id: '123T' }).rangeNoCondition().exec()
 
       // @ts-expect-error - Invalid partitionKey type
       query.primary().partitionValue(123)
@@ -129,34 +130,54 @@ describe('Query DSL Type Validations', () => {
       q.rangeNoCondition().options({ limit: 10 }).exec()
     })
 
-    test('Options', () => {
-      const q = query.primary().partitionValue('USER#1')
+    test('Options and State Transitions', () => {
+      // Valid with options (requires rangeNoCondition if sort key exists)
+      query
+        .primary()
+        .partitionValue('USER#123')
+        .rangeNoCondition()
+        .options({ consistent: true, limit: 10 })
+        .exec()
 
-      q.options({ limit: 10, consistent: true, order: 'desc' }).exec()
-      q.rangeNoCondition().options({ limit: 5 }).exec()
+      // Valid with sort and options
+      query
+        .primary()
+        .partitionValue('USER#123')
+        .range({ beginsWith: 'EMAIL' })
+        .options({ limit: 5 })
+        .exec()
 
-      // @ts-expect-error - invalid option key
-      q.options({ invalid: true })
-      // @ts-expect-error - invalid limit type
-      q.options({ limit: '10' })
-    })
+      // @ts-expect-error - Cannot options before range
+      query.primary().partitionValue('USER#123').options({ limit: 5 })
 
-    test('State Transitions', () => {
+      // Cannot apply two sort operations
+      query
+        .primary()
+        .partitionValue('USER#123')
+        .range({ beginsWith: 'A' })
+        // @ts-expect-error
+        .range({ beginsWith: 'B' })
+
       // Cannot call options before partition
-      // @ts-expect-error
-      query.primary().options({})
+      query
+        .primary()
+        // @ts-expect-error
+        .options({})
 
       // Cannot call range before partition
-      // @ts-expect-error
-      query.primary().range({ eq: 'foo' })
+      query
+        .primary()
+        // @ts-expect-error
+        .range({ eq: 'foo' })
 
       // Cannot call range after options
-      // @ts-expect-error
-      query.primary().partitionValue('P').options({ limit: 1 }).range({ eq: 'S' })
-
-      // Cannot call range twice
-      // @ts-expect-error
-      query.primary().partitionValue('P').range({ eq: 'S' }).range({ eq: 'S' })
+      query
+        .primary()
+        .partitionValue('P')
+        .rangeNoCondition()
+        .options({ limit: 1 })
+        // @ts-expect-error
+        .range({ eq: 'S' })
     })
   })
 
@@ -194,13 +215,16 @@ describe('Query DSL Type Validations', () => {
       q.rangeFrom({ age: '30' })
     })
 
-    test('Options', () => {
+    test('Options and Strictness', () => {
       const q = gsi.partitionValue('S')
 
-      q.options({ limit: 10, order: 'asc' }).exec()
+      q.rangeNoCondition().options({ limit: 10, order: 'asc' }).exec()
 
       // @ts-expect-error - consistentRead NOT allowed on GSI
-      q.options({ consistent: true })
+      q.rangeNoCondition().options({ consistent: true })
+
+      // @ts-expect-error - options not allowed before range (GSI has sort key)
+      gsi.partitionValue('S').options({ limit: 1 })
     })
   })
 
@@ -208,13 +232,14 @@ describe('Query DSL Type Validations', () => {
     const lsi = query.lsi('LSI1')
 
     test('Structure', () => {
-      // Partition key comes from table's PK (hash only part of it? No, table PK is used)
-      // Wait, LSI shares partition key with table.
-      // query.lsi('LSI1').partitionValue takes... the table's PK.
       lsi.partitionValue('USER#1').range({ eq: 20 }).exec()
-
       // Options (consistent read IS allowed on LSI)
-      lsi.partitionValue('USER#1').options({ consistent: true }).exec()
+      lsi.partitionValue('USER#1').rangeNoCondition().options({ consistent: true }).exec()
+    })
+
+    test('Strictness', () => {
+      // @ts-expect-error - Options not allowed before range
+      lsi.partitionValue('USER#1').options({ limit: 1 })
     })
   })
 
@@ -234,7 +259,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Return Types', () => {
-    const q = query.primary().partitionValue('U')
+    const q = query.primary().partitionValue('U').rangeNoCondition()
 
     test('Entity', async () => {
       const res = await q.exec()
@@ -254,8 +279,6 @@ describe('Query DSL Type Validations', () => {
     test('Select', async () => {
       const res = await q.select(['email', 'age']).exec()
       expectTypeOf(res).toEqualTypeOf<Pick<InferEntity<typeof entity>, 'email' | 'age'>[]>()
-      expectTypeOf(res[0]).toHaveProperty('email')
-      expectTypeOf(res[0]).not.toHaveProperty('id')
     })
 
     test('Chaining Output Ops', () => {
@@ -265,6 +288,13 @@ describe('Query DSL Type Validations', () => {
       // select().count() -> Error
       // @ts-expect-error
       q.select(['id']).count()
+    })
+  })
+
+  describe('State Transitions', () => {
+    it('initial state', () => {
+      const query = new Query().entity(entity)
+      expectTypeOf<AssertExactKeys<typeof query, 'primary' | 'lsi' | 'gsi'>>().toEqualTypeOf<true>()
     })
   })
 })

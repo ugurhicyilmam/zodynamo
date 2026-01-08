@@ -58,10 +58,15 @@ export type QueryExecOperations = 'exec'
 
 export type QueryOptionsOperations = QueryModifierOperations | QueryOutputOperations
 
-type AllowedQueryOperations<State extends QueryState> = State extends 'INITIAL'
+type AllowedQueryOperations<
+  State extends QueryState,
+  HasSortKey extends boolean
+> = State extends 'INITIAL'
   ? PartitionKeyOperations
   : State extends 'PARTITION_SET'
-    ? SortKeyOperations | QueryOptionsOperations | QueryExecOperations
+    ? HasSortKey extends true
+      ? SortKeyOperations
+      : SortKeyOperations | QueryOptionsOperations | QueryExecOperations
     : State extends 'SORT_SET' | 'OPTIONS_SET'
       ? QueryOptionsOperations | QueryExecOperations
       : never
@@ -69,9 +74,10 @@ type AllowedQueryOperations<State extends QueryState> = State extends 'INITIAL'
 export type ResolveQueryChain<
   Base,
   State extends QueryState,
-  Output extends QueryOutputMode<any>
+  Output extends QueryOutputMode<any>,
+  HasSortKey extends boolean = false
 > = Omit<
-  Pick<Base, keyof Base & AllowedQueryOperations<State>>,
+  Pick<Base, keyof Base & AllowedQueryOperations<State, HasSortKey>>,
   Output extends 'entity' ? never : QueryOutputOperations
 >
 

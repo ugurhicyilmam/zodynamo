@@ -34,7 +34,12 @@ export type GsiQuery<
   IndexName extends GlobalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'
-> = ResolveQueryChain<BaseGsiQuery<E, IndexName, Output, State>, State, Output>
+> = ResolveQueryChain<
+  BaseGsiQuery<E, IndexName, Output, State>,
+  State,
+  Output,
+  NonNullable<E['globalIndexes']>[IndexName]['rangeKey'] extends { calculate: any } ? true : false
+>
 
 export class GsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,

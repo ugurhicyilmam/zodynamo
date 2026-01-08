@@ -30,7 +30,12 @@ export type PrimaryQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'
-> = ResolveQueryChain<BasePrimaryQuery<E, Output, State>, State, Output>
+> = ResolveQueryChain<
+  BasePrimaryQuery<E, Output, State>,
+  State,
+  Output,
+  E['table']['primaryIndex']['rangeKey'] extends string ? true : false
+>
 
 export class PrimaryQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,

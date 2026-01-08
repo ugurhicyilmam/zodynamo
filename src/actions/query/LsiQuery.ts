@@ -25,7 +25,7 @@ export type LsiQuery<
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'
-> = ResolveQueryChain<LsiQueryBuilder<E, IndexName, Output, State>, State, Output>
+> = ResolveQueryChain<LsiQueryBuilder<E, IndexName, Output, State>, State, Output, true>
 
 export class LsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,

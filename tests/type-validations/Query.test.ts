@@ -1,4 +1,4 @@
-import { describe, expectTypeOf, it, test } from 'vitest'
+import { describe, expectTypeOf, it } from 'vitest'
 
 import { Query } from '../../src/actions/query/Query'
 import { InferDynamoItem } from '../../src/types/InferDynamoItem'
@@ -15,738 +15,601 @@ import { AssertExactKeys } from './utils/AssetExactKeys'
 
 describe('Query DSL Type Validations', () => {
   describe('State Transitions', () => {
-    it('initial state', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures)
-      const simpleQuery = new Query().entity(EntityPkString)
-      const gsiQuery = new Query().entity(EntityCompositeGsiString)
-      const lsiQuery = new Query().entity(EntityCompositeLsiNumber)
+    describe('Initial State', () => {
+      it('exposes correct index methods based on entity configuration', () => {
+        const withAllIndexes = new Query().entity(EntityCompositeAllFeatures)
+        const pkOnly = new Query().entity(EntityPkString)
+        const withGsi = new Query().entity(EntityCompositeGsiString)
+        const withLsi = new Query().entity(EntityCompositeLsiNumber)
 
-      expectTypeOf<AssertExactKeys<typeof query, 'primary' | 'lsi' | 'gsi'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof simpleQuery, 'primary'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof gsiQuery, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof lsiQuery, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof withAllIndexes, 'primary' | 'lsi' | 'gsi'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<AssertExactKeys<typeof pkOnly, 'primary'>>().toEqualTypeOf<true>()
+        expectTypeOf<AssertExactKeys<typeof withGsi, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
+        expectTypeOf<AssertExactKeys<typeof withLsi, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
+      })
     })
 
-    it('primary state', () => {
-      const q1 = new Query().entity(EntityCompositeAllFeatures).primary() // Has Sort Key
-      const q2 = new Query().entity(EntityCompositeGsiString).gsi('GSI')
-      const q3 = new Query().entity(EntityCompositeLsiNumber).lsi('LSI')
-      const q4 = new Query().entity(EntityPkString).primary() // No Sort Key
+    describe('Partition State', () => {
+      it('exposes only partition key setters after selecting an index', () => {
+        const primary = new Query().entity(EntityCompositeAllFeatures).primary()
+        const gsi = new Query().entity(EntityCompositeGsiString).gsi('GSI')
+        const lsi = new Query().entity(EntityCompositeLsiNumber).lsi('LSI')
+        const pkOnly = new Query().entity(EntityPkString).primary()
 
-      // Initial Primary State: Only Partition Key setters
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof primary, 'partitionFrom' | 'partitionValue'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof gsi, 'partitionFrom' | 'partitionValue'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof lsi, 'partitionFrom' | 'partitionValue'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof pkOnly, 'partitionFrom' | 'partitionValue'>
+        >().toEqualTypeOf<true>()
+      })
     })
 
-    it('range state', () => {
-      // 1. Entity with Sort Key (Primary)
-      const q1 = new Query().entity(EntityCompositeAllFeatures).primary().partitionValue('USER#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
+    describe('Range State', () => {
+      it('exposes range operations for entities with sort keys', () => {
+        const primaryWithSk = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+        const gsiWithSk = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .gsi('GSI1')
+          .partitionValue('STATUS#1')
+        const lsiWithSk = new Query()
+          .entity(EntityCompositeLsiNumber)
+          .lsi('LSI')
+          .partitionValue('USER#1')
 
-      // 2. Entity with Sort Key (GSI)
-      const q2 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .gsi('GSI1')
-        .partitionValue('STATUS#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof primaryWithSk, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof gsiWithSk, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof lsiWithSk, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+        >().toEqualTypeOf<true>()
+      })
 
-      // 3. Entity with Sort Key (LSI)
-      const q3 = new Query().entity(EntityCompositeLsiNumber).lsi('LSI').partitionValue('USER#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
+      it('skips range operations for hash-only indexes', () => {
+        const pkOnly = new Query().entity(EntityPkString).primary().partitionValue('USER#1')
+        const gsiHashOnly = new Query()
+          .entity(EntityCompositeGsiString)
+          .gsi('GSI')
+          .partitionValue('STATUS#1')
 
-      // 4. Entity WITHOUT Sort Key (Primary)
-      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1')
-      // Expect options/exec state (skip range)
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'options' | 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      // 5. Entity WITHOUT Sort Key (GSI)
-      const q5 = new Query().entity(EntityCompositeGsiString).gsi('GSI').partitionValue('STATUS#1')
-      // Expect options/exec state (skip range)
-      expectTypeOf<
-        AssertExactKeys<typeof q5, 'options' | 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof pkOnly, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+        >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof gsiHashOnly, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+        >().toEqualTypeOf<true>()
+      })
     })
 
-    it('options state', () => {
-      const q1 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
+    describe('Options State', () => {
+      it('exposes output methods after setting options', () => {
+        const afterOptions = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+          .rangeNoCondition()
+          .options({})
 
-      const q2 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .gsi('GSI1')
-        .partitionValue('STATUS#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
+        expectTypeOf<
+          AssertExactKeys<typeof afterOptions, 'raw' | 'select' | 'count' | 'exec'>
+        >().toEqualTypeOf<true>()
+      })
 
-      const q3 = new Query()
-        .entity(EntityCompositeLsiNumber)
-        .lsi('LSI')
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
+      it('allows exec directly after options', () => {
+        const query = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+          .rangeNoCondition()
+          .options({})
 
-      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1').options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      const q5 = new Query()
-        .entity(EntityCompositeGsiString)
-        .gsi('GSI')
-        .partitionValue('STATUS#1')
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q5, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
+        expectTypeOf(query.exec).toBeFunction()
+      })
     })
 
-    it('output state', () => {
-      const q1 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .raw()
-      expectTypeOf<AssertExactKeys<typeof q1, 'exec'>>().toEqualTypeOf<true>()
+    describe('Output State', () => {
+      it('exposes only exec after selecting an output format', () => {
+        const withRaw = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+          .rangeNoCondition()
+          .raw()
 
-      const q2 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .select(['email'])
-      expectTypeOf<AssertExactKeys<typeof q2, 'exec'>>().toEqualTypeOf<true>()
+        const withSelect = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+          .rangeNoCondition()
+          .select(['email'])
 
-      const q3 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .count()
-      expectTypeOf<AssertExactKeys<typeof q3, 'exec'>>().toEqualTypeOf<true>()
+        const withCount = new Query()
+          .entity(EntityCompositeAllFeatures)
+          .primary()
+          .partitionValue('USER#1')
+          .rangeNoCondition()
+          .count()
 
-      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1').raw()
-      expectTypeOf<AssertExactKeys<typeof q4, 'exec'>>().toEqualTypeOf<true>()
-
-      const q5 = new Query()
-        .entity(EntityCompositeGsiString)
-        .gsi('GSI')
-        .partitionValue('STATUS#1')
-        .count()
-      expectTypeOf<AssertExactKeys<typeof q5, 'exec'>>().toEqualTypeOf<true>()
-
-      // options -> output state
-      const q6 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .raw()
-      expectTypeOf<AssertExactKeys<typeof q6, 'exec'>>().toEqualTypeOf<true>()
-
-      const q7 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .select(['email'])
-      expectTypeOf<AssertExactKeys<typeof q7, 'exec'>>().toEqualTypeOf<true>()
-
-      const q8 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .count()
-      expectTypeOf<AssertExactKeys<typeof q8, 'exec'>>().toEqualTypeOf<true>()
-
-      const q9 = new Query()
-        .entity(EntityCompositeAllFeatures)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-
-      // exec should also be possible directly after options
-      expectTypeOf(q9.exec).toBeFunction()
+        expectTypeOf<AssertExactKeys<typeof withRaw, 'exec'>>().toEqualTypeOf<true>()
+        expectTypeOf<AssertExactKeys<typeof withSelect, 'exec'>>().toEqualTypeOf<true>()
+        expectTypeOf<AssertExactKeys<typeof withCount, 'exec'>>().toEqualTypeOf<true>()
+      })
     })
   })
 
-  describe('Primary Query (Composite Key)', () => {
-    test('Partition Key', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures)
+  describe('Primary Index Queries', () => {
+    describe('Partition Key', () => {
+      it('accepts valid partition key values and transformations', () => {
+        const query = new Query().entity(EntityCompositeAllFeatures).primary()
 
-      // Valid partitionValue
-      query.primary().partitionValue('USER#123').rangeNoCondition().exec()
-      // Valid partitionFrom
-      query.primary().partitionFrom({ id: '123T' }).rangeNoCondition().exec()
+        query.partitionValue('USER#123').rangeNoCondition().exec()
+        query.partitionFrom({ id: '123T' }).rangeNoCondition().exec()
+      })
 
-      // @ts-expect-error - Invalid partitionKey type
-      query.primary().partitionValue(123)
-      // @ts-expect-error - Invalid partitionFrom input
-      query.primary().partitionFrom({ id: 123 })
-      // @ts-expect-error - Missing fields for partitionFrom
-      query.primary().partitionFrom({})
+      it('rejects invalid partition key types', () => {
+        const query = new Query().entity(EntityCompositeAllFeatures).primary()
+
+        // @ts-expect-error - Invalid type
+        query.partitionValue(123)
+        // @ts-expect-error - Invalid input type
+        query.partitionFrom({ id: 123 })
+        // @ts-expect-error - Missing required fields
+        query.partitionFrom({})
+      })
     })
 
-    test('Range Conditions (String Key)', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures)
+    describe('Range Conditions - String Sort Key', () => {
+      const query = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
 
-      const q = query.primary().partitionValue('USER#1')
+      it('supports comparison operators', () => {
+        query.range({ eq: 'EMAIL#test' }).exec()
+        query.range({ gt: 'EMAIL#a' }).exec()
+        query.range({ gte: 'EMAIL#a' }).exec()
+        query.range({ lt: 'EMAIL#z' }).exec()
+        query.range({ lte: 'EMAIL#z' }).exec()
 
-      // eq
-      q.range({ eq: 'EMAIL#test' }).exec()
-      q.range({ gt: 'EMAIL#a' }).exec()
-      q.range({ gte: 'EMAIL#a' }).exec()
-      q.range({ lt: 'EMAIL#z' }).exec()
-      q.range({ lte: 'EMAIL#z' }).exec()
-      // @ts-expect-error - invalid type
-      q.range({ eq: 123 })
+        // @ts-expect-error - Invalid type for string sort key
+        query.range({ eq: 123 })
+      })
 
-      // beginsWith
-      q.range({ beginsWith: 'EMAIL' }).exec()
-      // @ts-expect-error - invalid type
-      q.range({ beginsWith: 123 })
+      it('supports beginsWith for string keys', () => {
+        query.range({ beginsWith: 'EMAIL' }).exec()
 
-      // between
-      q.range({ between: ['A', 'Z'] }).exec()
-      // @ts-expect-error - invalid type
-      q.range({ between: ['A', 1] })
-      // @ts-expect-error - not an array
-      q.range({ between: 'A' })
-      // @ts-expect-error - only one operator allowed
-      q.range({ eq: 'A', lt: 'B' })
+        // @ts-expect-error - Invalid type
+        query.range({ beginsWith: 123 })
+      })
 
-      // rangeFrom
-      q.rangeFrom({ email: 'test' }).exec()
-      // @ts-expect-error - invalid input
-      q.rangeFrom({ email: 123 })
-      // @ts-expect-error - missing field
-      q.rangeFrom({})
+      it('supports between operator', () => {
+        query.range({ between: ['A', 'Z'] }).exec()
 
-      // rangeNoCondition
-      q.rangeNoCondition().exec()
-      q.rangeNoCondition().options({ limit: 10 }).exec()
+        // @ts-expect-error - Mixed types in between
+        query.range({ between: ['A', 1] })
+        // @ts-expect-error - Between requires array
+        query.range({ between: 'A' })
+      })
+
+      it('allows only one operator per range condition', () => {
+        // @ts-expect-error - Multiple operators not allowed
+        query.range({ eq: 'A', lt: 'B' })
+      })
+
+      it('supports rangeFrom transformation', () => {
+        query.rangeFrom({ email: 'test' }).exec()
+
+        // @ts-expect-error - Invalid input type
+        query.rangeFrom({ email: 123 })
+        // @ts-expect-error - Missing required field
+        query.rangeFrom({})
+      })
+
+      it('supports rangeNoCondition', () => {
+        query.rangeNoCondition().exec()
+        query.rangeNoCondition().options({ limit: 10 }).exec()
+      })
     })
 
-    test('Options and State Transitions', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures)
+    describe('Range Conditions - Number Sort Key', () => {
+      const query = new Query().entity(EntityCompositeSkNumber).primary().partitionValue('USER#1')
 
-      // Valid with options (requires rangeNoCondition if sort key exists)
-      query
-        .primary()
-        .partitionValue('USER#123')
-        .rangeNoCondition()
-        .options({ consistent: true, limit: 10 })
-        .exec()
+      it('supports comparison operators with numbers', () => {
+        query.range({ gt: 100 }).exec()
+        query.range({ between: [100, 200] }).exec()
 
-      // Valid with sort and options
-      query
-        .primary()
-        .partitionValue('USER#123')
-        .range({ beginsWith: 'EMAIL' })
-        .options({ limit: 5, startKey: { pk: 'USER#123', sk: 'EMAIL#x' } })
-        .exec()
-
-      // @ts-expect-error - Cannot options before range
-      query.primary().partitionValue('USER#123').options({ limit: 5 })
-
-      // Cannot apply two sort operations
-      query
-        .primary()
-        .partitionValue('USER#123')
-        .range({ beginsWith: 'A' })
-        // @ts-expect-error
-        .range({ beginsWith: 'B' })
-
-      // Cannot call options before partition
-      query
-        .primary()
-        // @ts-expect-error
-        .options({})
-
-      // Cannot call range before partition
-      query
-        .primary()
-        // @ts-expect-error
-        .range({ eq: 'foo' })
-
-      // Cannot call range after options
-      query
-        .primary()
-        .partitionValue('P')
-        .rangeNoCondition()
-        .options({ limit: 1 })
-        // @ts-expect-error
-        .range({ eq: 'S' })
-
-      query
-        .primary()
-        .partitionValue('USER#123')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'email', eq: 'active' } })
-
-      // @ts-expect-error - invalid limit type
-      query.primary().partitionValue('USER#123').rangeNoCondition().options({ limit: '1' })
-
-      // @ts-expect-error - invalid startKey type
-      query.primary().partitionValue('USER#123').rangeNoCondition().options({ startKey: 'BAD_KEY' })
-    })
-  })
-
-  describe('GSI Query (Number Sort Key)', () => {
-    const query = new Query().entity(EntityCompositeAllFeatures)
-
-    const gsi = query.gsi('GSI1')
-
-    test('Partition Key', () => {
-      gsi.partitionFrom({ status: 'ACTIVE' }).rangeNoCondition().exec()
-      gsi.partitionValue('STATUS#ACTIVE').rangeNoCondition().exec()
-
-      // @ts-expect-error - missing required field
-      gsi.partitionFrom({})
-
-      // @ts-expect-error - invalid field
-      gsi.partitionFrom({ invalid: 'field' })
-
-      // @ts-expect-error - invalid type
-      gsi.partitionFrom({ status: 123 })
-      // @ts-expect-error - invalid type
-      gsi.partitionValue(123)
-
-      // @ts-expect-error - wrong fields for GSI partitionFrom
-      gsi.partitionFrom({ id: '1' })
+        // @ts-expect-error - String not allowed for number sort key
+        query.range({ eq: '100' })
+        // @ts-expect-error - beginsWith not allowed for number keys
+        query.range({ beginsWith: '1' })
+      })
     })
 
-    test('Range Conditions (Number Key)', () => {
-      const q = gsi.partitionValue('STATUS#ACTIVE')
+    describe('State Transition Rules', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures).primary()
 
-      // eq
-      q.range({ eq: 25 }).exec()
-      // @ts-expect-error - invalid type (string assigned to number key)
-      q.range({ eq: '25' })
+      it('enforces correct method call order', () => {
+        // Valid: partition -> range -> options
+        query
+          .partitionValue('USER#123')
+          .rangeNoCondition()
+          .options({ consistent: true, limit: 10 })
+          .exec()
+        query.partitionValue('USER#123').range({ beginsWith: 'EMAIL' }).options({ limit: 5 }).exec()
 
-      // gt, lt, gte, lte
-      q.range({ gt: 18 }).exec()
-      q.range({ gte: 18 }).exec()
-      q.range({ lt: 65 }).exec()
-      q.range({ lte: 100 }).exec()
+        // @ts-expect-error - Cannot call options before range (when sort key exists)
+        query.partitionValue('USER#123').options({ limit: 5 })
 
-      // between
-      q.range({ between: [18, 65] }).exec()
+        // @ts-expect-error - Cannot call options before partition
+        query.options({})
 
-      // beginsWith - NOT available on number key
-      // @ts-expect-error - beginsWith only for string keys
-      q.range({ beginsWith: '1' })
-      // @ts-expect-error - only one operator allowed
-      q.range({ eq: 1, lt: 2 })
+        // @ts-expect-error - Cannot call range before partition
+        query.range({ eq: 'foo' })
 
-      // rangeFrom
-      q.rangeFrom({
-        age: 30
-      }).exec()
-      // @ts-expect-error - invalid input type
-      q.rangeFrom({ age: '30' })
-    })
+        // @ts-expect-error - Cannot call range after options
+        query.partitionValue('P').rangeNoCondition().options({ limit: 1 }).range({ eq: 'S' })
+      })
 
-    test('Options and Strictness', () => {
-      const q = gsi.partitionValue('S')
+      it('prevents duplicate range operations', () => {
+        const withRange = query.partitionValue('USER#123').range({ beginsWith: 'A' })
 
-      q.rangeNoCondition().options({ limit: 10, order: 'asc' }).exec()
+        // @ts-expect-error - Cannot apply range twice
+        withRange.range({ beginsWith: 'B' })
+      })
 
-      // @ts-expect-error - consistentRead NOT allowed on GSI
-      q.rangeNoCondition().options({ consistent: true })
+      it('validates option types', () => {
+        query
+          .partitionValue('USER#123')
+          .rangeNoCondition()
+          .options({ filter: { attr: 'email', eq: 'active' } })
 
-      // @ts-expect-error - options not allowed before range (GSI has sort key)
-      gsi.partitionValue('S').options({ limit: 1 })
+        // @ts-expect-error - Invalid limit type
+        query.partitionValue('USER#123').rangeNoCondition().options({ limit: '1' })
+
+        // @ts-expect-error - Invalid startKey type
+        query.partitionValue('USER#123').rangeNoCondition().options({ startKey: 'BAD_KEY' })
+      })
     })
   })
 
-  describe('LSI Query', () => {
-    const query = new Query().entity(EntityCompositeAllFeatures)
+  describe('GSI Queries', () => {
+    describe('GSI with Composite Key', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures).gsi('GSI1')
 
-    const lsi = query.lsi('LSI1')
+      it('validates partition key', () => {
+        query.partitionFrom({ status: 'ACTIVE' }).rangeNoCondition().exec()
+        query.partitionValue('STATUS#ACTIVE').rangeNoCondition().exec()
 
-    test('Structure', () => {
-      lsi.partitionValue('USER#1').range({ eq: 20 }).exec()
-      lsi.partitionFrom({ id: '1' }).rangeNoCondition().exec()
-      // @ts-expect-error - invalid input type
-      lsi.partitionFrom({ id: 1 })
-      // @ts-expect-error - wrong fields for LSI partitionFrom
-      lsi.partitionFrom({ score: 1 })
-      // Options (consistent read IS allowed on LSI)
-      lsi.partitionValue('USER#1').rangeNoCondition().options({ consistent: true }).exec()
+        // @ts-expect-error - Missing required field
+        query.partitionFrom({})
+
+        // @ts-expect-error - Invalid field name
+        query.partitionFrom({ invalid: 'field' })
+
+        // @ts-expect-error - Invalid type
+        query.partitionFrom({ status: 123 })
+        // @ts-expect-error - Invalid type
+        query.partitionValue(123)
+
+        // @ts-expect-error - Wrong fields for GSI
+        query.partitionFrom({ id: '1' })
+      })
+
+      it('supports range conditions for number sort key', () => {
+        const q = query.partitionValue('STATUS#ACTIVE')
+
+        q.range({ eq: 25 }).exec()
+        q.range({ gt: 18 }).exec()
+        q.range({ gte: 18 }).exec()
+        q.range({ lt: 65 }).exec()
+        q.range({ lte: 100 }).exec()
+        q.range({ between: [18, 65] }).exec()
+        q.rangeFrom({ age: 30 }).exec()
+
+        // @ts-expect-error - String not allowed for number sort key
+        q.range({ eq: '25' })
+
+        // @ts-expect-error - beginsWith only for string keys
+        q.range({ beginsWith: '1' })
+
+        // @ts-expect-error - Only one operator allowed
+        q.range({ eq: 1, lt: 2 })
+
+        // @ts-expect-error - Invalid rangeFrom input type
+        q.rangeFrom({ age: '30' })
+      })
+
+      it('enforces GSI-specific option constraints', () => {
+        const q = query.partitionValue('S')
+
+        q.rangeNoCondition().options({ limit: 10, order: 'asc' }).exec()
+
+        // @ts-expect-error - consistentRead NOT allowed on GSI
+        q.rangeNoCondition().options({ consistent: true })
+
+        // @ts-expect-error - Options not allowed before range
+        query.partitionValue('S').options({ limit: 1 })
+      })
     })
 
-    test('Strictness', () => {
+    describe('GSI with Hash Key Only', () => {
+      const query = new Query().entity(EntityCompositeGsiString).gsi('GSI')
+
+      it('validates partition key', () => {
+        query.partitionValue('value').exec()
+        query.partitionFrom({ gsiVal: 'value' }).exec()
+
+        // @ts-expect-error - Invalid type
+        query.partitionValue(123)
+        // @ts-expect-error - Invalid input type
+        query.partitionFrom({ gsiVal: 123 })
+      })
+
+      it('does not expose range operations', () => {
+        // @ts-expect-error - range not allowed
+        query.partitionValue('value').range({ eq: 'x' })
+        // @ts-expect-error - rangeFrom not allowed
+        query.partitionValue('value').rangeFrom({ email: 'x' })
+        // @ts-expect-error - rangeNoCondition not allowed
+        query.partitionValue('value').rangeNoCondition()
+      })
+
+      it('supports output formats and options', () => {
+        query.partitionValue('value').options({ limit: 1 }).raw().exec()
+        query.partitionValue('value').select(['email']).exec()
+
+        // @ts-expect-error - consistentRead NOT allowed on GSI
+        query.partitionValue('value').options({ consistent: true })
+      })
+    })
+  })
+
+  describe('LSI Queries', () => {
+    const query = new Query().entity(EntityCompositeAllFeatures).lsi('LSI1')
+
+    it('validates partition key and range operations', () => {
+      query.partitionValue('USER#1').range({ eq: 20 }).exec()
+      query.partitionFrom({ id: '1' }).rangeNoCondition().exec()
+      query.partitionValue('USER#1').rangeFrom({ age: 30 }).exec()
+
+      // @ts-expect-error - Invalid input type
+      query.partitionFrom({ id: 1 })
+      // @ts-expect-error - Wrong fields for LSI
+      query.partitionFrom({ score: 1 })
+    })
+
+    it('allows consistent reads on LSI', () => {
+      query.partitionValue('USER#1').rangeNoCondition().options({ consistent: true }).exec()
+    })
+
+    it('enforces state transition rules', () => {
       // @ts-expect-error - Options not allowed before range
-      lsi.partitionValue('USER#1').options({ limit: 1 })
+      query.partitionValue('USER#1').options({ limit: 1 })
     })
   })
 
-  describe('GSI Query (Hash Only)', () => {
-    const query = new Query().entity(EntityCompositeGsiString)
+  describe('Hash-Only Primary Index', () => {
+    const query = new Query().entity(EntityPkString).primary()
 
-    const gsi = query.gsi('GSI')
-
-    test('Partition Key', () => {
-      gsi.partitionValue('value').exec()
-      gsi.partitionFrom({ gsiVal: 'value' }).exec()
-
-      // @ts-expect-error - invalid partition value type
-      gsi.partitionValue(123)
-      // @ts-expect-error - invalid partitionFrom input
-      gsi.partitionFrom({ gsiVal: 123 })
-    })
-
-    test('No Range Operations', () => {
-      // @ts-expect-error - range not allowed
-      gsi.partitionValue('value').range({ eq: 'x' })
-      // @ts-expect-error - rangeFrom not allowed
-      gsi.partitionValue('value').rangeFrom({ email: 'x' })
-      // @ts-expect-error - rangeNoCondition not allowed
-      gsi.partitionValue('value').rangeNoCondition()
-    })
-
-    test('Options and Outputs', () => {
-      gsi.partitionValue('value').options({ limit: 1 }).raw().exec()
-      gsi.partitionValue('value').select(['email']).exec()
-
-      // @ts-expect-error - consistentRead NOT allowed on GSI
-      gsi.partitionValue('value').options({ consistent: true })
-    })
-  })
-
-  describe('Simple Table (Hash Only)', () => {
-    const simpleQ = new Query().entity(EntityPkString)
-
-    test('No Range Operations', () => {
-      simpleQ.primary().partitionValue('USER#1').exec()
+    it('does not expose range operations', () => {
+      query.partitionValue('USER#1').exec()
 
       // @ts-expect-error - range not allowed
-      simpleQ.primary().partitionValue('USER#1').range({ eq: 'x' })
+      query.partitionValue('USER#1').range({ eq: 'x' })
       // @ts-expect-error - rangeFrom not allowed
-      simpleQ.primary().partitionValue('USER#1').rangeFrom({ id: '1' })
+      query.partitionValue('USER#1').rangeFrom({ id: '1' })
       // @ts-expect-error - rangeNoCondition not allowed
-      simpleQ.primary().partitionValue('USER#1').rangeNoCondition()
+      query.partitionValue('USER#1').rangeNoCondition()
     })
-  })
 
-  describe('Primary Query (Number Sort Key)', () => {
-    const query = new Query().entity(EntityCompositeSkNumber)
-
-    test('Partiton Value and Range', () => {
-      query.primary().partitionValue('USER#1').range({ gt: 100 }).exec()
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .range({ between: [100, 200] })
-        .exec()
-
-      // @ts-expect-error - string not allowed for number sort key
-      query.primary().partitionValue('USER#1').range({ eq: '100' })
-      // @ts-expect-error - beginsWith not allowed for number sort key
-      query.primary().partitionValue('USER#1').range({ beginsWith: '1' })
+    it('supports output formats and options', () => {
+      query.partitionValue('USER#1').options({ limit: 1 }).raw().exec()
+      query.partitionValue('USER#1').select(['id']).exec()
     })
   })
 
   describe('Return Types', () => {
-    const query = new Query().entity(EntityCompositeAllFeatures)
+    const query = new Query()
+      .entity(EntityCompositeAllFeatures)
+      .primary()
+      .partitionValue('U')
+      .rangeNoCondition()
 
-    const q = query.primary().partitionValue('U').rangeNoCondition()
-
-    test('Entity', async () => {
-      const res = await q.exec()
-      expectTypeOf(res).toEqualTypeOf<InferEntity<typeof EntityCompositeAllFeatures>[]>()
+    it('returns entities by default', async () => {
+      const result = await query.exec()
+      expectTypeOf(result).toEqualTypeOf<InferEntity<typeof EntityCompositeAllFeatures>[]>()
     })
 
-    test('Raw', async () => {
-      const res = await q.raw().exec()
-      expectTypeOf(res).toEqualTypeOf<InferDynamoItem<typeof EntityCompositeAllFeatures>[]>()
+    it('returns raw DynamoDB items when using raw()', async () => {
+      const result = await query.raw().exec()
+      expectTypeOf(result).toEqualTypeOf<InferDynamoItem<typeof EntityCompositeAllFeatures>[]>()
     })
 
-    test('Count', async () => {
-      const res = await q.count().exec()
-      expectTypeOf(res).toEqualTypeOf<number>()
+    it('returns count when using count()', async () => {
+      const result = await query.count().exec()
+      expectTypeOf(result).toEqualTypeOf<number>()
     })
 
-    test('Select', async () => {
-      const res = await q.select(['email', 'age']).exec()
-      expectTypeOf(res).toEqualTypeOf<
+    it('returns projected entities when using select()', async () => {
+      const result = await query.select(['email', 'age']).exec()
+      expectTypeOf(result).toEqualTypeOf<
         Pick<InferEntity<typeof EntityCompositeAllFeatures>, 'email' | 'age'>[]
       >()
     })
 
-    test('Chaining Output Ops', () => {
-      // count().raw() -> Error
-      // @ts-expect-error
-      q.count().raw()
-      // select().count() -> Error
-      // @ts-expect-error
-      q.select(['id']).count()
+    it('prevents chaining output operations', () => {
+      // @ts-expect-error - Cannot chain count().raw()
+      query.count().raw()
+      // @ts-expect-error - Cannot chain select().count()
+      query.select(['id']).count()
     })
 
-    test('Select Invalid Keys', () => {
-      // @ts-expect-error - invalid field
-      q.select(['missingField'])
+    it('validates selected field names', () => {
+      // @ts-expect-error - Invalid field
+      query.select(['missingField'])
     })
   })
 
-  describe('Select Paths (Nested Entity)', () => {
-    const query = new Query().entity(EntityWithNestedData)
-    const q = query.primary().partitionValue('USER#1').rangeNoCondition()
+  describe('Field Path Selection', () => {
+    const query = new Query()
+      .entity(EntityWithNestedData)
+      .primary()
+      .partitionValue('USER#1')
+      .rangeNoCondition()
 
-    test('top-level keys', () => {
-      q.select(['metadata']).exec()
+    it('supports top-level field selection', () => {
+      query.select(['metadata']).exec()
+      query.select(['id'])
+      query.select(['email', 'metadata'])
 
-      q.select(['id'])
-
-      q.select(['email', 'metadata'])
-
-      // @ts-expect-error - invalid field
-      q.select(['incorrect']).exec()
+      // @ts-expect-error - Invalid field
+      query.select(['incorrect']).exec()
     })
 
-    test('Nested fields', () => {
-      q.select(['metadata.version']).exec()
-      q.select([`metadata['version']`]).exec()
-      q.select(['metadata.tags[0]']).exec()
-      q.select([`metadata['tags'][0]`]).exec()
-      q.select(['history[0].action']).exec()
-      q.select([`history[0]['action']`]).exec()
-      q.select(['history[0].timestamp']).exec()
-      // @ts-expect-error - dynamic keys on Record<string, string> hit recursion limits in FieldPath
-      q.select([`meta['any[char]-you.want!']`]).exec()
+    it('supports nested field selection with dot notation', () => {
+      query.select(['metadata.version']).exec()
+      query.select(['history[0].action']).exec()
+      query.select(['history[0].timestamp']).exec()
+    })
 
-      // @ts-expect-error - unknown nested field
-      q.select(['metadata.unknown'])
-      // @ts-expect-error - unknown top-level field
-      q.select(['unknown'])
+    it('supports nested field selection with bracket notation', () => {
+      query.select([`metadata['version']`]).exec()
+      query.select(['metadata.tags[0]']).exec()
+      query.select([`metadata['tags'][0]`]).exec()
+      query.select([`history[0]['action']`]).exec()
+    })
 
-      q.select(['metadata.tags[-1]'])
+    it('validates nested field names', () => {
+      // @ts-expect-error - Unknown nested field
+      query.select(['metadata.unknown'])
+      // @ts-expect-error - Unknown top-level field
+      query.select(['unknown'])
+    })
 
-      q.select(['metadata.tags[0.4]'])
-      // @ts-expect-error - invalid non-numeric index
-      q.select(['history[a].action'])
-      // @ts-expect-error - invalid bracket syntax
-      q.select(['history[0.action'])
-      // @ts-expect-error - invalid type traversal (number is not indexable)
-      q.select(['metadata.version[0]'])
+    it('allows numeric array indices', () => {
+      query.select(['metadata.tags[-1]'])
+      query.select(['metadata.tags[0.4]'])
+    })
+
+    it('validates field path syntax', () => {
+      // @ts-expect-error - Dynamic keys on Record<string, string> hit recursion limits
+      query.select([`meta['any[char]-you.want!']`]).exec()
+
+      // @ts-expect-error - Non-numeric index
+      query.select(['history[a].action'])
+      // @ts-expect-error - Invalid bracket syntax
+      query.select(['history[0.action'])
+      // @ts-expect-error - Cannot index number type
+      query.select(['metadata.version[0]'])
     })
   })
 
-  describe('Filter Conditions (DynamoDB-toolbox style paths)', () => {
-    const query = new Query().entity(EntityWithNestedData)
+  describe('Filter Conditions', () => {
+    const baseQuery = new Query()
+      .entity(EntityWithNestedData)
+      .primary()
+      .partitionValue('USER#1')
+      .rangeNoCondition()
 
-    test('Basic operators', () => {
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'metadata.version', eq: 1 } })
-        .exec()
+    describe('Basic Operators', () => {
+      it('supports comparison operators', () => {
+        baseQuery.options({ filter: { attr: 'metadata.version', eq: 1 } }).exec()
+        baseQuery.options({ filter: { attr: `metadata['version']`, ne: 1 } }).exec()
+        baseQuery.options({ filter: { attr: 'metadata.version', between: [1, 2] } }).exec()
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: `metadata['version']`, ne: 1 } })
-        .exec()
+        // @ts-expect-error - Type mismatch (number field requires number value)
+        baseQuery.options({ filter: { attr: 'metadata.version', eq: 'str' } })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'metadata.tags[0]', eq: 'tag' } })
-        .exec()
+        // @ts-expect-error - Type mismatch in between array
+        baseQuery.options({ filter: { attr: 'metadata.version', between: [1, '2'] } })
+      })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'history[1].action', eq: 'tag' } })
-        .exec()
+      it('supports string operators', () => {
+        baseQuery.options({ filter: { attr: 'email', beginsWith: 'a' } }).exec()
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - recursion limit
-        .options({ filter: { attr: `meta['any[char]-you.want!']`, contains: 'x' } })
-        .exec()
+        // @ts-expect-error - beginsWith requires sortable type
+        baseQuery.options({ filter: { attr: 'email', beginsWith: true } })
+      })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'metadata.version', between: [1, 2] } })
-        .exec()
+      it('supports array operators', () => {
+        baseQuery.options({ filter: { attr: 'email', in: ['a@x.com', 'b@x.com'] } }).exec()
+      })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'email', beginsWith: 'a' } })
-        .exec()
+      it('supports existence operators', () => {
+        baseQuery.options({ filter: { attr: 'metadata', exists: true } }).exec()
+        baseQuery.options({ filter: { attr: 'metadata', type: 'map' } }).exec()
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'email', in: ['a@x.com', 'b@x.com'] } })
-        .exec()
+        // @ts-expect-error - Invalid type literal
+        baseQuery.options({ filter: { attr: 'metadata', type: 'oops' } })
+      })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'metadata', exists: true } })
-        .exec()
+      it('supports nested path filters', () => {
+        baseQuery.options({ filter: { attr: 'metadata.tags[0]', eq: 'tag' } }).exec()
+        baseQuery.options({ filter: { attr: 'history[1].action', eq: 'tag' } }).exec()
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({ filter: { attr: 'metadata', type: 'map' } })
-        .exec()
+        // @ts-expect-error - Recursion limit on dynamic Record keys
+        baseQuery.options({ filter: { attr: `meta['any[char]-you.want!']`, contains: 'x' } }).exec()
+      })
+
+      it('validates filter attribute paths', () => {
+        // @ts-expect-error - Unknown path
+        baseQuery.options({ filter: { attr: 'nope' } })
+      })
+
+      it('enforces single operator per filter', () => {
+        // @ts-expect-error - Must use exactly one operator
+        baseQuery.options({ filter: { attr: 'metadata.version', eq: 1, lt: 2 } })
+      })
     })
 
-    test('Logical composition', () => {
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({
-          filter: {
-            and: [
-              { attr: 'metadata.version', gte: 1 },
-              { attr: 'metadata.tags[0]', exists: true }
-            ]
-          }
-        })
-        .exec()
+    describe('Logical Composition', () => {
+      it('supports AND conditions', () => {
+        baseQuery
+          .options({
+            filter: {
+              and: [
+                { attr: 'metadata.version', gte: 1 },
+                { attr: 'metadata.tags[0]', exists: true }
+              ]
+            }
+          })
+          .exec()
+      })
 
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({
-          filter: {
-            or: [
-              { attr: 'metadata.version', eq: 1 },
-              { attr: 'metadata.version', eq: 2 }
-            ]
-          }
-        })
-        .exec()
+      it('supports OR conditions', () => {
+        baseQuery
+          .options({
+            filter: {
+              or: [
+                { attr: 'metadata.version', eq: 1 },
+                { attr: 'metadata.version', eq: 2 }
+              ]
+            }
+          })
+          .exec()
+      })
     })
 
-    test('Invalid filter shapes', () => {
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - unknown path
-        .options({ filter: { attr: 'nope' } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - must use exactly one operator (value/range)
-        .options({ filter: { attr: 'metadata.version', eq: 1, lt: 2 } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
-        .options({ filter: { attr: 'history[-1].action', eq: 'x' } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
-        .options({ filter: { attr: 'metadata.tags[-1]', eq: 'tag' } })
-        .exec()
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
-        .options({ filter: { attr: 'history[-1].action', eq: 'x' } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - metadata.version is number, second element must be number
-        .options({ filter: { attr: 'metadata.version', between: [1, '2'] } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({
-          // @ts-expect-error - metadata.version is number, eq must be number
-          filter: {
-            attr: 'metadata.version',
-            eq: 'str'
-          }
-        })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - beginsWith expects sortable (string/number/binary)
-        .options({ filter: { attr: 'email', beginsWith: true } })
-
-      query
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        // @ts-expect-error - invalid type literal
-        .options({ filter: { attr: 'metadata', type: 'oops' } })
+    describe('Edge Cases', () => {
+      it('allows negative list indices at runtime (type-level limitation)', () => {
+        // NOTE: Negative indices cannot be caught at type level - runtime validation needed
+        baseQuery.options({ filter: { attr: 'history[-1].action', eq: 'x' } })
+        baseQuery.options({ filter: { attr: 'metadata.tags[-1]', eq: 'tag' } }).exec()
+      })
     })
   })
 })

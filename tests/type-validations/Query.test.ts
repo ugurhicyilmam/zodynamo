@@ -80,6 +80,38 @@ const simpleEntity = defineEntity(simpleTable, {
   }
 })
 
+const tableWithGsi = defineTable({
+  name: 'GsiTable',
+  fields: { pk: 'string', sk: 'string', gsiPk: 'string' },
+  primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+  globalIndexes: { GSI: { hashKey: 'gsiPk' } }
+})
+const entityWithGsi = defineEntity(tableWithGsi, {
+  name: 'GsiUser',
+  schema: z.object({ id: z.string(), email: z.string(), gsiVal: z.string() }),
+  key: {
+    hashKey: { fields: ['id'], calculate: ({ id }) => id },
+    rangeKey: { fields: ['email'], calculate: ({ email }) => email }
+  },
+  globalIndexes: { GSI: { hashKey: { fields: ['gsiVal'], calculate: ({ gsiVal }) => gsiVal } } }
+})
+
+const tableWithLsi = defineTable({
+  name: 'LsiTable',
+  fields: { pk: 'string', sk: 'string', lsiSk: 'number' },
+  primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+  localIndexes: { LSI: { rangeKey: 'lsiSk' } }
+})
+const entityWithLsi = defineEntity(tableWithLsi, {
+  name: 'LsiUser',
+  schema: z.object({ id: z.string(), date: z.string(), score: z.number() }),
+  key: {
+    hashKey: { fields: ['id'], calculate: ({ id }) => id },
+    rangeKey: { fields: ['date'], calculate: ({ date }) => date }
+  },
+  localIndexes: { LSI: { rangeKey: { fields: ['score'], calculate: ({ score }) => score } } }
+})
+
 describe('Query DSL Type Validations', () => {
   const query = new Query().entity(entity)
 
@@ -294,7 +326,14 @@ describe('Query DSL Type Validations', () => {
   describe('State Transitions', () => {
     it('initial state', () => {
       const query = new Query().entity(entity)
+      const simpleQuery = new Query().entity(simpleEntity)
+      const gsiQuery = new Query().entity(entityWithGsi)
+      const lsiQuery = new Query().entity(entityWithLsi)
+
       expectTypeOf<AssertExactKeys<typeof query, 'primary' | 'lsi' | 'gsi'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof simpleQuery, 'primary'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof gsiQuery, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof lsiQuery, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
     })
   })
 })

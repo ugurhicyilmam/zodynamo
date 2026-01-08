@@ -16,38 +16,45 @@ export class Query {
    */
   entity<E extends Entity<any, any, any, any, any, any, any, any, any>>(
     entity: E
-  ): QueryEntitySelector<E> {
-    return new QueryEntitySelector(entity)
+  ): QuerySelector<E> {
+    return new QueryEntitySelector(entity) as any
   }
 }
 
-/**
- * Intermediate builder to select the index to query.
- */
-export class QueryEntitySelector<E extends Entity<any, any, any, any, any, any, any, any, any>> {
+export type QuerySelector<E extends Entity<any, any, any, any, any, any, any, any, any>> = {
+  primary(): PrimaryQuery<E>
+} & (GlobalIndexName<E['table']> extends never
+  ? unknown
+  : {
+      /**
+       * Query a Global Secondary Index (GSI).
+       *
+       * @param indexName - The name of the GSI to query.
+       */
+      gsi<N extends GlobalIndexName<E['table']>>(indexName: N): GsiQuery<E, N>
+    }) &
+  (LocalIndexName<E['table']> extends never
+    ? unknown
+    : {
+        /**
+         * Query a Local Secondary Index (LSI).
+         *
+         * @param indexName - The name of the LSI to query.
+         */
+        lsi<N extends LocalIndexName<E['table']>>(indexName: N): LsiQuery<E, N>
+      })
+
+class QueryEntitySelector<E extends Entity<any, any, any, any, any, any, any, any, any>> {
   constructor(protected entity: E) {}
 
-  /**
-   * Query the table's Primary Index (Partition Key + Optional Sort Key).
-   */
   primary(): PrimaryQuery<E> {
     return new PrimaryQueryBuilder(this.entity) as any
   }
 
-  /**
-   * Query a Global Secondary Index (GSI).
-   *
-   * @param indexName - The name of the GSI to query.
-   */
   gsi<N extends GlobalIndexName<E['table']>>(indexName: N): GsiQuery<E, N> {
     return new GsiQueryBuilder(this.entity, indexName) as any
   }
 
-  /**
-   * Query a Local Secondary Index (LSI).
-   *
-   * @param indexName - The name of the LSI to query.
-   */
   lsi<N extends LocalIndexName<E['table']>>(indexName: N): LsiQuery<E, N> {
     return new LsiQueryBuilder(this.entity, indexName) as any
   }

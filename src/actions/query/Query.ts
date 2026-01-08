@@ -301,8 +301,8 @@ export class QueryBuilder<
   options(
     options: Simplify<
       Extract<Index, QueryIndexSelector<E>> extends { kind: 'gsi' }
-        ? GsiQueryOptions<E>
-        : QueryOptions<E>
+        ? GsiQueryOptions<E, Extract<Index, QueryIndexSelector<E>>>
+        : QueryOptions<E, Extract<Index, QueryIndexSelector<E>>>
     >
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'OPTIONS_SET'> {
     return this as any

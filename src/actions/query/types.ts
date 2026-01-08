@@ -2,7 +2,7 @@ import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
 import { FieldPath, PickByPaths, ValueAt } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
-import { OneOf } from '../../types/utils'
+import { OneOf, ResolveDynamoType } from '../../types/utils'
 
 /**
  * Identify which index is being queried.
@@ -59,6 +59,41 @@ export type AttributeType =
   | 'string_set'
   | 'binary_set'
 
+export type InferQueryStartKey<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Selected extends QueryIndexSelector<E>
+> = {
+  // Always include the table's primary key
+  [K in E['table']['primaryIndex']['hashKey']]: ResolveDynamoType<E['table']['fields'][K]>
+} & (E['table']['primaryIndex']['rangeKey'] extends string
+  ? {
+      [K in E['table']['primaryIndex']['rangeKey']]: ResolveDynamoType<E['table']['fields'][K]>
+    }
+  : {}) &
+  (Selected extends { kind: 'gsi'; name: infer N }
+    ? N extends keyof NonNullable<E['table']['globalIndexes']>
+      ? {
+          [K in NonNullable<E['table']['globalIndexes']>[N]['hashKey']]: ResolveDynamoType<
+            E['table']['fields'][K]
+          >
+        } & (NonNullable<E['table']['globalIndexes']>[N]['rangeKey'] extends string
+          ? {
+              [K in NonNullable<E['table']['globalIndexes']>[N]['rangeKey']]: ResolveDynamoType<
+                E['table']['fields'][K]
+              >
+            }
+          : {})
+      : {}
+    : Selected extends { kind: 'lsi'; name: infer N }
+      ? N extends keyof NonNullable<E['table']['localIndexes']>
+        ? {
+            [K in NonNullable<E['table']['localIndexes']>[N]['rangeKey']]: ResolveDynamoType<
+              E['table']['fields'][K]
+            >
+          }
+        : {}
+      : {})
+
 export type FilterOperations<V> = OneOf<
   {
     eq: V
@@ -66,7 +101,7 @@ export type FilterOperations<V> = OneOf<
     in: V[]
     exists: boolean
     type: AttributeType
-  } & (V extends string | number | Uint8Array
+  } & (Exclude<V, undefined> extends string | number | Uint8Array
     ? {
         lt: V
         lte: V
@@ -75,12 +110,12 @@ export type FilterOperations<V> = OneOf<
         between: [V, V]
       }
     : {}) &
-    (V extends string | Uint8Array | Set<any>
+    (Exclude<V, undefined> extends string | Uint8Array | Set<any>
       ? {
           contains: V extends Set<infer U> ? U : V
         }
       : {}) &
-    (V extends string | Uint8Array
+    (Exclude<V, undefined> extends string | Uint8Array
       ? {
           beginsWith: V
         }
@@ -112,19 +147,22 @@ export type Condition<T> =
   | { and: Condition<T>[] }
   | { not: Condition<T> }
 
-export type QueryOptions<E extends Entity<any, any, any, any, any, any, any, any, any>> = {
+export type QueryOptions<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Index extends QueryIndexSelector<E> = { kind: 'primary' }
+> = {
   consistent?: boolean
   tableName?: string
   limit?: number
   order?: 'asc' | 'desc' // default asc
   filter?: Condition<InferEntity<E>>
-  startKey?: Record<string, any>
+  startKey?: InferQueryStartKey<E, Index>
 }
 
-export type GsiQueryOptions<E extends Entity<any, any, any, any, any, any, any, any, any>> = Omit<
-  QueryOptions<E>,
-  'consistent'
->
+export type GsiQueryOptions<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Index extends QueryIndexSelector<E>
+> = Omit<QueryOptions<E, Index>, 'consistent'>
 
 export type SortKeyOperations = 'range' | 'rangeFrom' | 'rangeNoCondition'
 

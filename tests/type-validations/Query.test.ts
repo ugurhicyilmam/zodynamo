@@ -1,4 +1,4 @@
-import { describe, expectTypeOf, test } from 'vitest'
+import { describe, expectTypeOf, it, test } from 'vitest'
 import { z } from 'zod'
 
 import { Query } from '../../src/actions/query/Query'
@@ -334,6 +334,64 @@ describe('Query DSL Type Validations', () => {
       expectTypeOf<AssertExactKeys<typeof simpleQuery, 'primary'>>().toEqualTypeOf<true>()
       expectTypeOf<AssertExactKeys<typeof gsiQuery, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
       expectTypeOf<AssertExactKeys<typeof lsiQuery, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
+    })
+
+    it('primary state', () => {
+      const q1 = new Query().entity(entity).primary() // Has Sort Key
+      const q2 = new Query().entity(entityWithGsi).gsi('GSI')
+      const q3 = new Query().entity(entityWithLsi).lsi('LSI')
+      const q4 = new Query().entity(simpleEntity).primary() // No Sort Key
+
+      // Initial Primary State: Only Partition Key setters
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+    })
+
+    it('range state', () => {
+      // 1. Entity with Sort Key (Primary)
+      const q1 = new Query().entity(entity).primary().partitionValue('USER#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 2. Entity with Sort Key (GSI)
+      const q2 = new Query().entity(entity).gsi('GSI1').partitionValue('STATUS#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 3. Entity with Sort Key (LSI)
+      const q3 = new Query().entity(entityWithLsi).lsi('LSI').partitionValue('USER#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 4. Entity WITHOUT Sort Key (Primary)
+      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1')
+      // Expect options/exec state (skip range)
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      // 5. Entity WITHOUT Sort Key (GSI)
+      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1')
+      // Expect options/exec state (skip range)
+      expectTypeOf<
+        AssertExactKeys<typeof q5, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
     })
   })
 })

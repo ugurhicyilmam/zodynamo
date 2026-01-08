@@ -109,11 +109,12 @@ export interface Entity<
   >,
   TTtl extends ((domain: TItem) => number | undefined) | undefined,
   TEntityType extends string | undefined,
-  TTransform = undefined
+  TTransform = undefined,
+  TInput = TItem
 > {
   name: TName
   table: TTable
-  schema: ZodType<TItem>
+  schema: ZodType<TItem, any, TInput>
   key: {
     hashKey: KeyPartDefinition<TItem, THashKeyFields, EntityHashKeyValue<TTable>>
   } & (TTable['primaryIndex']['rangeKey'] extends string

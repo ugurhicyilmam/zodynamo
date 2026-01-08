@@ -133,7 +133,8 @@ export function defineEntity<
             TEntityType
           >,
           TInternal
-        >
+        >,
+    z.input<TSchema>
   >,
   'globalIndexes'
 > &

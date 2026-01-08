@@ -25,3 +25,14 @@ import { Entity } from '~/types/Entity'
 export type InferEntity<T extends Entity<any, any, any, any, any, any, any, any, any>> = z.infer<
   T['schema']
 >
+
+/**
+ * Infers the TypeScript input type from an Entity's Zod schema.
+ *
+ * This captures the type expected *before* any Zod transformations or defaults.
+ * Use this for write operations (Put, Update) where the user provides input.
+ *
+ * @template T - The Entity type to infer from
+ */
+export type InferEntityInput<T extends Entity<any, any, any, any, any, any, any, any, any>> =
+  z.input<T['schema']>

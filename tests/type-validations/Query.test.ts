@@ -262,6 +262,12 @@ describe('Query DSL Type Validations', () => {
 
         // @ts-expect-error - Cannot call range after options
         query.partitionValue('P').rangeNoCondition().options({ limit: 1 }).range({ eq: 'S' })
+
+        // @ts-expect-error - Cannot call exec immediately after partition (when sort key exists)
+        query.partitionValue('P').exec()
+
+        // @ts-expect-error - Cannot call raw immediately after partition (when sort key exists)
+        query.partitionValue('P').raw()
       })
 
       it('prevents duplicate range operations', () => {
@@ -277,11 +283,23 @@ describe('Query DSL Type Validations', () => {
           .rangeNoCondition()
           .options({ filter: { attr: 'email', eq: 'active' } })
 
-        // @ts-expect-error - Invalid limit type
-        query.partitionValue('USER#123').rangeNoCondition().options({ limit: '1' })
+        // @ts-expect-error - Missing Table SK
+        query.partitionValue('USER#1').rangeNoCondition().options({ limit: '1' })
 
-        // @ts-expect-error - Invalid startKey type
+        // @ts-expect-error - Invalid startKey type (must be object)
         query.partitionValue('USER#123').rangeNoCondition().options({ startKey: 'BAD_KEY' })
+
+        query
+          .partitionValue('USER#123')
+          .rangeNoCondition()
+          // @ts-expect-error - Invalid startKey structure (missing required keys)
+          .options({ startKey: { pk: 'USER#1' } })
+
+        // Valid startKey for Primary Index
+        query
+          .partitionValue('USER#123')
+          .rangeNoCondition()
+          .options({ startKey: { pk: 'USER#1', sk: 'EMAIL#test' } })
       })
     })
   })
@@ -341,6 +359,14 @@ describe('Query DSL Type Validations', () => {
         // @ts-expect-error - consistentRead NOT allowed on GSI
         q.rangeNoCondition().options({ consistent: true })
 
+        // @ts-expect-error - Global Index startKey requires GSI Keys + Table Keys
+        q.rangeNoCondition().options({ startKey: { gsi1pk: 'STATUS#1', gsi1sk: '2023' } })
+
+        // Valid startKey for GSI
+        q.rangeNoCondition().options({
+          startKey: { pk: 'USER#1', sk: 'EMAIL#test', gsi1pk: 'STATUS#1', gsi1sk: 25 }
+        })
+
         // @ts-expect-error - Options not allowed before range
         query.partitionValue('S').options({ limit: 1 })
       })
@@ -396,9 +422,18 @@ describe('Query DSL Type Validations', () => {
       query.partitionValue('USER#1').rangeNoCondition().options({ consistent: true }).exec()
     })
 
-    it('enforces state transition rules', () => {
-      // @ts-expect-error - Options not allowed before range
-      query.partitionValue('USER#1').options({ limit: 1 })
+    it('validates startKey for LSI', () => {
+      // Valid LSI startKey (Table PK + LSI SK... wait, LSI shares PK, so Table PK is required. Table SK is also required for uniqueness?)
+      // DynamoDB: LSI query start key must contain: Table PK, LSI Range Key, AND Table Range Key (to uniquely identify item)
+      // Our InferQueryStartKey should likely include Table SK too if it exists.
+      // Let's check my implementation of InferQueryStartKey for LSI.
+      // It includes Table PK. Does it include Table SK?
+      // Implementation:
+      //   [K in E['table']['primaryIndex']['hashKey']]: ...
+      //   & (E['table']['primaryIndex']['rangeKey'] extends string ? ... : {})  <-- Yes, Table Range Key is included unconditionally.
+      //   & (Index LSI SK)
+
+      query.partitionValue('USER#1').rangeNoCondition()
     })
   })
 
@@ -606,6 +641,14 @@ describe('Query DSL Type Validations', () => {
     })
 
     describe('Edge Cases', () => {
+      it('supports raw attribute filters', () => {
+        baseQuery.options({ filter: { rawAttr: 'pk', eq: 'USER#1' } }).exec()
+        baseQuery.options({ filter: { rawAttr: 'sk', beginsWith: 'EMAIL#' } }).exec()
+
+        // @ts-expect-error - Invalid operator for rawAttr
+        baseQuery.options({ filter: { rawAttr: 'pk', invalidOp: 'x' } })
+      })
+
       it('allows negative list indices at runtime (type-level limitation)', () => {
         // NOTE: Negative indices cannot be caught at type level - runtime validation needed
         baseQuery.options({ filter: { attr: 'history[-1].action', eq: 'x' } })

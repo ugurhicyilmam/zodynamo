@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import { FindOne } from '../../src/actions/find-one/FindOne'
 import { EntityCompositeAllFeatures } from '../fixtures'
 
 describe('FindOne Runtime', () => {
   it('initializes with key', () => {
-    const query = EntityCompositeAllFeatures.findOne({ pk: 'USER#1', sk: 'EMAIL#test' })
+    const query = new FindOne(EntityCompositeAllFeatures).key({ pk: 'USER#1', sk: 'EMAIL#test' })
     expect(query).toBeDefined()
   })
 
   it('updates state immutably', () => {
-    const q1 = EntityCompositeAllFeatures.findOne({ pk: 'USER#1', sk: 'EMAIL#test' })
+    const q1 = new FindOne(EntityCompositeAllFeatures).key({ pk: 'USER#1', sk: 'EMAIL#test' })
     const q2 = q1.options({ consistent: true })
     const q3 = q2.attributes(['email'])
     const q4 = q3.orThrow()
@@ -21,7 +22,7 @@ describe('FindOne Runtime', () => {
 
   // Since actual execution is mocked/not connected to DB, we mainly verify it doesn't crash
   it('executes without error', async () => {
-    const query = EntityCompositeAllFeatures.findOne({ pk: 'USER#1', sk: 'EMAIL#test' })
+    const query = new FindOne(EntityCompositeAllFeatures).key({ pk: 'USER#1', sk: 'EMAIL#test' })
     const result = await query.exec()
     expect(result).toBeDefined()
   })

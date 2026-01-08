@@ -1,30 +1,43 @@
-import { Entity } from '../../types/Entity'
 import { FieldPath } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
-import { FindOneKey, FindOneOptions, FindOneOutput, FindOneState } from './types'
+import {
+  AnyEntity,
+  FindOneKey,
+  FindOneOptions,
+  FindOneOutput,
+  FindOneStateObject,
+  ResolveFindOneChain
+} from './types'
 
 export class FindOne<
-  E extends Entity<any, any, any, any, any, any, any, any, any, any, any>,
-  State extends FindOneState = {}
+  E extends AnyEntity,
+  State extends FindOneStateObject = { status: 'INITIAL' }
 > {
   constructor(
     private entity: E,
-    private key: FindOneKey<E>,
-    private state: State = {} as State
+    private state: State = { status: 'INITIAL' } as any
   ) {}
 
-  options(options: FindOneOptions): FindOne<E, State & { options: FindOneOptions }> {
-    return new FindOne(this.entity, this.key, { ...this.state, options })
+  key(
+    key: FindOneKey<E>
+  ): ResolveFindOneChain<FindOne<E, State & { status: 'KEY_SET'; key: FindOneKey<E> }>, 'KEY_SET'> {
+    return new FindOne(this.entity, { ...this.state, status: 'KEY_SET', key }) as any
+  }
+
+  options(
+    options: FindOneOptions
+  ): ResolveFindOneChain<FindOne<E, State & { options: FindOneOptions }>, 'KEY_SET'> {
+    return new FindOne(this.entity, { ...this.state, options }) as any
   }
 
   attributes<const K extends FieldPath<InferEntity<E>>>(
     attributes: readonly K[]
-  ): FindOne<E, State & { attributes: readonly K[] }> {
-    return new FindOne(this.entity, this.key, { ...this.state, attributes })
+  ): ResolveFindOneChain<FindOne<E, State & { attributes: readonly K[] }>, 'KEY_SET'> {
+    return new FindOne(this.entity, { ...this.state, attributes }) as any
   }
 
-  orThrow(): FindOne<E, State & { orThrow: true }> {
-    return new FindOne(this.entity, this.key, { ...this.state, orThrow: true })
+  orThrow(): ResolveFindOneChain<FindOne<E, State & { orThrow: true }>, 'KEY_SET'> {
+    return new FindOne(this.entity, { ...this.state, orThrow: true }) as any
   }
 
   async exec(): Promise<FindOneOutput<E, State>> {
@@ -32,7 +45,7 @@ export class FindOne<
     // For now, valid types are what matters mostly for this task, but runtime logic is needed too.
     const commandInput = {
       TableName: this.state.options?.tableName || this.entity.table.name,
-      Key: this.key, // Needs transformation to DynamoDB JSON format
+      Key: this.state.key!, // key is guaranteed by state type in runtime usage if verified, but here we trust types
       ConsistentRead: this.state.options?.consistent,
       ProjectionExpression: this.state.attributes?.join(', '), // Needs path resolution
       ReturnConsumedCapacity: this.state.options?.capacity

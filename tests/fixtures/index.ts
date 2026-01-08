@@ -60,6 +60,7 @@ export const EntityWithNestedData = defineEntity(TableCompositeAllFeatures, {
   schema: z.object({
     id: z.string(),
     email: z.string(),
+    meta: z.record(z.string()),
     metadata: z.object({
       tags: z.array(z.string()),
       version: z.number()

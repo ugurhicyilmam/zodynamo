@@ -1,5 +1,6 @@
 import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
+import { FieldPath, PickByPaths } from '../../types/FieldPath'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
 import {
@@ -184,7 +185,7 @@ export class QueryBuilder<
     return this as any
   }
 
-  select<K extends keyof InferEntity<E>>(
+  select<K extends FieldPath<InferEntity<E>>>(
     fields: readonly K[]
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, { select: readonly K[] }, 'OPTIONS_SET'> {
     return this as any
@@ -205,8 +206,8 @@ export class QueryBuilder<
       : Output extends 'raw'
         ? InferDynamoItem<E>[]
         : Output extends { select: readonly (infer K)[] }
-          ? [K] extends [keyof InferEntity<E>]
-            ? Pick<InferEntity<E>, K>[]
+          ? [K] extends [FieldPath<InferEntity<E>>]
+            ? PickByPaths<InferEntity<E>, Extract<K, string>>[]
             : never
           : Output extends 'count'
             ? number

@@ -31,10 +31,12 @@ After the range step (or immediately if skipped):
 - Optional:
   - `.options(QueryOptions)`
 
-- Then choose **exactly one** output mode:
+- Then choose **at most one** output mode:
   - `.raw()`
   - `.select(paths)`
   - `.count()`
+
+- If no output mode is selected, the default is the normal entity output.
 
 - Final step:
   - `.exec()`
@@ -102,7 +104,7 @@ interface QueryOptions {
 
 ---
 
-## 5. Output Modes (Choose Exactly One)
+## 5. Output Modes (Optional)
 
 ### `.raw()`
 
@@ -113,8 +115,42 @@ Return raw query results.
 Select specific entity fields.
 
 ```ts
-type Path = string[]
+type Path = string
 ```
+
+#### Path Semantics (DynamoDB-Toolbox Style)
+
+`Path` models a DynamoDB document path using a string DSL (similar to `dynamodb-toolbox`), which the
+library compiles into DynamoDB expressions (for example, `ProjectionExpression`) plus
+`ExpressionAttributeNames` placeholders when needed.
+
+**Map dereference**
+
+- `Pictures.FrontView`
+- `ProductReviews.FiveStar`
+
+**List dereference** (zero-based)
+
+- `RelatedItems[2]`
+- `ProductReviews.FiveStar[0]`
+
+**Escaping special map/record keys**
+
+Use bracket quoting to escape keys that contain special characters (including `.`, `[`, `]`, `-`, etc):
+
+- `meta['any[char]-you.want!']`
+- `metadata['version']` (equivalent to `metadata.version`)
+
+**Rules**
+
+- A `Path` must be a non-empty string.
+- Dot segments (`.`) dereference **map** attributes.
+- Bracket segments:
+  - `[n]` dereference **list** elements where `n` is a non-negative integer.
+  - `['key']` dereference **map/record** keys and supports special characters.
+- List indexes are **zero-based** and must be a **non-negative integer**.
+- DynamoDB document paths have a **maximum depth of 32**; avoid paths that exceed this limit.
+- If a path uses attribute names that are reserved words or contain special characters, the implementation must use `ExpressionAttributeNames` placeholders when compiling the final DynamoDB expression.
 
 ### `.count()`
 
@@ -126,7 +162,7 @@ Return count-only result.
 
 ### `.exec()`
 
-Executes the query. Must be the final call in the chain.
+Executes the query. Must be the final call in the chain. If no output mode is selected, the default is the normal entity output.
 
 ---
 
@@ -136,8 +172,8 @@ Executes the query. Must be the final call in the chain.
 
 Each condition targets either:
 
-- `attr: string` – logical entity field
-- `rawAttr: string` – internal attribute path
+- `attr: Path` – logical entity field path (using the Path DSL above)
+- `rawAttr: Path` – internal attribute path (using the Path DSL above)
 
 And defines **exactly one** operator.
 
@@ -182,6 +218,8 @@ And defines **exactly one** operator.
 { attr: 'name', eq: 'foo' }
 { rawAttr: 'n', eq: 'foo' }
 { attr: 'age', gte: 18 }
+{ attr: 'metadata.version', gte: 1 }
+{ attr: `meta['any[char]-you.want!']`, contains: 'x' }
 
 { or: [{ attr: 'age', gte: 18 }, { attr: 'age', lte: 18 }] }
 { and: [{ attr: 'age', gte: 18 }, { attr: 'age', lte: 18 }] }

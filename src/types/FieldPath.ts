@@ -17,9 +17,34 @@ import { IsPlainObject, Prettify, UnionToIntersection } from './utils'
  */
 export type FieldPath<T> = T extends object
   ? {
-      [K in keyof T & string]: IsPlainObject<NonNullable<T[K]>> extends true
-        ? K | `${K}.${FieldPath<NonNullable<T[K]>>}`
-        : K
+      [K in keyof T & string]: NonNullable<T[K]> extends (infer U)[]
+        ? (string extends K ? K : K | `['${K}']`) extends infer P extends string
+          ?
+              | P
+              | `${P}[${number}]`
+              | (U extends object
+                  ? `${P}[${number}]` extends infer ArrayPath extends string
+                    ? FieldPath<U> extends infer ChildPath extends string
+                      ? ChildPath extends `[${string}`
+                        ? `${ArrayPath}${ChildPath}`
+                        : `${ArrayPath}.${ChildPath}`
+                      : never
+                    : never
+                  : never)
+          : never
+        : IsPlainObject<NonNullable<T[K]>> extends true
+          ? (string extends K ? K : K | `['${K}']`) extends infer P extends string
+            ?
+                | P
+                | (FieldPath<NonNullable<T[K]>> extends infer ChildPath extends string
+                    ? ChildPath extends `[${string}`
+                      ? `${P}${ChildPath}`
+                      : `${P}.${ChildPath}`
+                    : never)
+            : never
+          : string extends K
+            ? K
+            : K | `['${K}']`
     }[keyof T & string]
   : never
 
@@ -76,3 +101,42 @@ export type PickByPath<T, P extends string> = P extends `${infer Head}.${infer R
 export type PickByPaths<T, P extends string> = Prettify<
   UnionToIntersection<P extends unknown ? PickByPath<T, P> : never>
 >
+
+/**
+ * Extracts the value type at a specific dot-notation path.
+ *
+ * @template T - The source object type
+ * @template P - The dot-notation path string
+ */
+// Extract nested path value
+export type ValueAt<T, P extends string> =
+  // Array element with nested path: "items[0].prop"
+  P extends `${infer Head}[${number}].${infer Rest}`
+    ? Head extends keyof T
+      ? NonNullable<T[Head]> extends (infer U)[]
+        ? ValueAt<U, Rest>
+        : never
+      : never
+    : // Nested object path: "address.street"
+      P extends `${infer Head}.${infer Rest}`
+      ? Head extends keyof T
+        ? ValueAt<NonNullable<T[Head]>, Rest>
+        : never
+      : // Array element path: "items[0]"
+        P extends `${infer Head}[${number}]`
+        ? Head extends keyof T
+          ? NonNullable<T[Head]> extends (infer U)[]
+            ? U
+            : never
+          : never
+        : // Bracket key path: "meta['key']"
+          P extends `${infer Head}['${infer Key}']`
+          ? Head extends keyof T
+            ? NonNullable<T[Head]> extends Record<string, infer V>
+              ? V
+              : never
+            : never
+          : // Base case: simple key
+            P extends keyof T
+            ? T[P]
+            : never

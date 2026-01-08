@@ -8,7 +8,8 @@ import {
   EntityCompositeGsiString,
   EntityCompositeLsiNumber,
   EntityCompositeSkNumber,
-  EntityPkString
+  EntityPkString,
+  EntityWithNestedData
 } from '../fixtures'
 import { AssertExactKeys } from './utils/AssetExactKeys'
 
@@ -232,6 +233,10 @@ describe('Query DSL Type Validations', () => {
 
       // eq
       q.range({ eq: 'EMAIL#test' }).exec()
+      q.range({ gt: 'EMAIL#a' }).exec()
+      q.range({ gte: 'EMAIL#a' }).exec()
+      q.range({ lt: 'EMAIL#z' }).exec()
+      q.range({ lte: 'EMAIL#z' }).exec()
       // @ts-expect-error - invalid type
       q.range({ eq: 123 })
 
@@ -246,6 +251,8 @@ describe('Query DSL Type Validations', () => {
       q.range({ between: ['A', 1] })
       // @ts-expect-error - not an array
       q.range({ between: 'A' })
+      // @ts-expect-error - only one operator allowed
+      q.range({ eq: 'A', lt: 'B' })
 
       // rangeFrom
       q.rangeFrom({ email: 'test' }).exec()
@@ -275,7 +282,7 @@ describe('Query DSL Type Validations', () => {
         .primary()
         .partitionValue('USER#123')
         .range({ beginsWith: 'EMAIL' })
-        .options({ limit: 5 })
+        .options({ limit: 5, startKey: { pk: 'USER#123', sk: 'EMAIL#x' } })
         .exec()
 
       // @ts-expect-error - Cannot options before range
@@ -309,6 +316,18 @@ describe('Query DSL Type Validations', () => {
         .options({ limit: 1 })
         // @ts-expect-error
         .range({ eq: 'S' })
+
+      query
+        .primary()
+        .partitionValue('USER#123')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'email', eq: 'active' } })
+
+      // @ts-expect-error - invalid limit type
+      query.primary().partitionValue('USER#123').rangeNoCondition().options({ limit: '1' })
+
+      // @ts-expect-error - invalid startKey type
+      query.primary().partitionValue('USER#123').rangeNoCondition().options({ startKey: 'BAD_KEY' })
     })
   })
 
@@ -318,7 +337,8 @@ describe('Query DSL Type Validations', () => {
     const gsi = query.gsi('GSI1')
 
     test('Partition Key', () => {
-      const q = gsi.partitionFrom({ status: 'ACTIVE' })
+      gsi.partitionFrom({ status: 'ACTIVE' }).rangeNoCondition().exec()
+      gsi.partitionValue('STATUS#ACTIVE').rangeNoCondition().exec()
 
       // @ts-expect-error - missing required field
       gsi.partitionFrom({})
@@ -328,6 +348,11 @@ describe('Query DSL Type Validations', () => {
 
       // @ts-expect-error - invalid type
       gsi.partitionFrom({ status: 123 })
+      // @ts-expect-error - invalid type
+      gsi.partitionValue(123)
+
+      // @ts-expect-error - wrong fields for GSI partitionFrom
+      gsi.partitionFrom({ id: '1' })
     })
 
     test('Range Conditions (Number Key)', () => {
@@ -340,6 +365,8 @@ describe('Query DSL Type Validations', () => {
 
       // gt, lt, gte, lte
       q.range({ gt: 18 }).exec()
+      q.range({ gte: 18 }).exec()
+      q.range({ lt: 65 }).exec()
       q.range({ lte: 100 }).exec()
 
       // between
@@ -348,6 +375,8 @@ describe('Query DSL Type Validations', () => {
       // beginsWith - NOT available on number key
       // @ts-expect-error - beginsWith only for string keys
       q.range({ beginsWith: '1' })
+      // @ts-expect-error - only one operator allowed
+      q.range({ eq: 1, lt: 2 })
 
       // rangeFrom
       q.rangeFrom({
@@ -377,6 +406,11 @@ describe('Query DSL Type Validations', () => {
 
     test('Structure', () => {
       lsi.partitionValue('USER#1').range({ eq: 20 }).exec()
+      lsi.partitionFrom({ id: '1' }).rangeNoCondition().exec()
+      // @ts-expect-error - invalid input type
+      lsi.partitionFrom({ id: 1 })
+      // @ts-expect-error - wrong fields for LSI partitionFrom
+      lsi.partitionFrom({ score: 1 })
       // Options (consistent read IS allowed on LSI)
       lsi.partitionValue('USER#1').rangeNoCondition().options({ consistent: true }).exec()
     })
@@ -384,6 +418,39 @@ describe('Query DSL Type Validations', () => {
     test('Strictness', () => {
       // @ts-expect-error - Options not allowed before range
       lsi.partitionValue('USER#1').options({ limit: 1 })
+    })
+  })
+
+  describe('GSI Query (Hash Only)', () => {
+    const query = new Query().entity(EntityCompositeGsiString)
+
+    const gsi = query.gsi('GSI')
+
+    test('Partition Key', () => {
+      gsi.partitionValue('value').exec()
+      gsi.partitionFrom({ gsiVal: 'value' }).exec()
+
+      // @ts-expect-error - invalid partition value type
+      gsi.partitionValue(123)
+      // @ts-expect-error - invalid partitionFrom input
+      gsi.partitionFrom({ gsiVal: 123 })
+    })
+
+    test('No Range Operations', () => {
+      // @ts-expect-error - range not allowed
+      gsi.partitionValue('value').range({ eq: 'x' })
+      // @ts-expect-error - rangeFrom not allowed
+      gsi.partitionValue('value').rangeFrom({ email: 'x' })
+      // @ts-expect-error - rangeNoCondition not allowed
+      gsi.partitionValue('value').rangeNoCondition()
+    })
+
+    test('Options and Outputs', () => {
+      gsi.partitionValue('value').options({ limit: 1 }).raw().exec()
+      gsi.partitionValue('value').select(['email']).exec()
+
+      // @ts-expect-error - consistentRead NOT allowed on GSI
+      gsi.partitionValue('value').options({ consistent: true })
     })
   })
 
@@ -454,6 +521,232 @@ describe('Query DSL Type Validations', () => {
       // select().count() -> Error
       // @ts-expect-error
       q.select(['id']).count()
+    })
+
+    test('Select Invalid Keys', () => {
+      // @ts-expect-error - invalid field
+      q.select(['missingField'])
+    })
+  })
+
+  describe('Select Paths (Nested Entity)', () => {
+    const query = new Query().entity(EntityWithNestedData)
+    const q = query.primary().partitionValue('USER#1').rangeNoCondition()
+
+    test('top-level keys', () => {
+      q.select(['metadata']).exec()
+
+      q.select(['id'])
+
+      q.select(['email', 'metadata'])
+
+      // @ts-expect-error - invalid field
+      q.select(['incorrect']).exec()
+    })
+
+    test('Nested fields', () => {
+      q.select(['metadata.version']).exec()
+      q.select([`metadata['version']`]).exec()
+      q.select(['metadata.tags[0]']).exec()
+      q.select([`metadata['tags'][0]`]).exec()
+      q.select(['history[0].action']).exec()
+      q.select([`history[0]['action']`]).exec()
+      q.select(['history[0].timestamp']).exec()
+      // @ts-expect-error - dynamic keys on Record<string, string> hit recursion limits in FieldPath
+      q.select([`meta['any[char]-you.want!']`]).exec()
+
+      // @ts-expect-error - unknown nested field
+      q.select(['metadata.unknown'])
+      // @ts-expect-error - unknown top-level field
+      q.select(['unknown'])
+
+      q.select(['metadata.tags[-1]'])
+
+      q.select(['metadata.tags[0.4]'])
+      // @ts-expect-error - invalid non-numeric index
+      q.select(['history[a].action'])
+      // @ts-expect-error - invalid bracket syntax
+      q.select(['history[0.action'])
+      // @ts-expect-error - invalid type traversal (number is not indexable)
+      q.select(['metadata.version[0]'])
+    })
+  })
+
+  describe('Filter Conditions (DynamoDB-toolbox style paths)', () => {
+    const query = new Query().entity(EntityWithNestedData)
+
+    test('Basic operators', () => {
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'metadata.version', eq: 1 } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: `metadata['version']`, ne: 1 } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'metadata.tags[0]', eq: 'tag' } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'history[1].action', eq: 'tag' } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - recursion limit
+        .options({ filter: { attr: `meta['any[char]-you.want!']`, contains: 'x' } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'metadata.version', between: [1, 2] } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'email', beginsWith: 'a' } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'email', in: ['a@x.com', 'b@x.com'] } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'metadata', exists: true } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({ filter: { attr: 'metadata', type: 'map' } })
+        .exec()
+    })
+
+    test('Logical composition', () => {
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({
+          filter: {
+            and: [
+              { attr: 'metadata.version', gte: 1 },
+              { attr: 'metadata.tags[0]', exists: true }
+            ]
+          }
+        })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({
+          filter: {
+            or: [
+              { attr: 'metadata.version', eq: 1 },
+              { attr: 'metadata.version', eq: 2 }
+            ]
+          }
+        })
+        .exec()
+    })
+
+    test('Invalid filter shapes', () => {
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - unknown path
+        .options({ filter: { attr: 'nope' } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - must use exactly one operator (value/range)
+        .options({ filter: { attr: 'metadata.version', eq: 1, lt: 2 } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
+        .options({ filter: { attr: 'history[-1].action', eq: 'x' } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
+        .options({ filter: { attr: 'metadata.tags[-1]', eq: 'tag' } })
+        .exec()
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // NOTE: Negative list indices cannot be caught at type level - runtime validation needed
+        .options({ filter: { attr: 'history[-1].action', eq: 'x' } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - metadata.version is number, second element must be number
+        .options({ filter: { attr: 'metadata.version', between: [1, '2'] } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({
+          // @ts-expect-error - metadata.version is number, eq must be number
+          filter: {
+            attr: 'metadata.version',
+            eq: 'str'
+          }
+        })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - beginsWith expects sortable (string/number/binary)
+        .options({ filter: { attr: 'email', beginsWith: true } })
+
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        // @ts-expect-error - invalid type literal
+        .options({ filter: { attr: 'metadata', type: 'oops' } })
     })
   })
 })

@@ -1,7 +1,8 @@
 import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
-import { PickByPaths } from '../../types/FieldPath'
+import { FieldPath, PickByPaths, ValueAt } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
+import { OneOf } from '../../types/utils'
 
 /**
  * Identify which index is being queried.
@@ -32,21 +33,91 @@ export type QueryOutputMode<E extends Entity<any, any, any, any, any, any, any, 
   | { select: readonly (keyof InferEntity<E>)[] }
   | 'count'
 
-export type RangeOptions<SortKeyType> =
-  | { eq: SortKeyType }
-  | { gt: SortKeyType }
-  | { gte: SortKeyType }
-  | { lt: SortKeyType }
-  | { lte: SortKeyType }
-  | { between: [SortKeyType, SortKeyType] }
-  | (SortKeyType extends string ? { beginsWith: string } : never)
+export type RangeOperator<T> = OneOf<{
+  eq: T
+  gt: T
+  gte: T
+  lt: T
+  lte: T
+  between: [T, T]
+  beginsWith: T extends string ? string : never
+}>
+
+export type RangeOptions<SortKeyType> = RangeOperator<SortKeyType>
+
+export type ScalarValue = boolean | number | string | Uint8Array
+export type SortableValue = string | number | Uint8Array
+export type AttributeType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'binary'
+  | 'list'
+  | 'map'
+  | 'null'
+  | 'number_set'
+  | 'string_set'
+  | 'binary_set'
+
+export type FilterOperations<V> = OneOf<
+  {
+    eq: V
+    ne: V
+    in: V[]
+    exists: boolean
+    type: AttributeType
+  } & (V extends string | number | Uint8Array
+    ? {
+        lt: V
+        lte: V
+        gt: V
+        gte: V
+        between: [V, V]
+      }
+    : {}) &
+    (V extends string | Uint8Array | Set<any>
+      ? {
+          contains: V extends Set<infer U> ? U : V
+        }
+      : {}) &
+    (V extends string | Uint8Array
+      ? {
+          beginsWith: V
+        }
+      : {})
+>
+
+// Condition type distributed over keys of T
+export type Condition<T> =
+  | (FieldPath<T> extends infer P extends string
+      ? P extends any
+        ? { attr: P } & FilterOperations<ValueAt<T, P>>
+        : never
+      : never)
+  | ({ rawAttr: string } & OneOf<{
+      eq: ScalarValue
+      ne: ScalarValue
+      in: ScalarValue[]
+      contains: ScalarValue
+      exists: boolean
+      type: AttributeType
+      gt: SortableValue
+      gte: SortableValue
+      lt: SortableValue
+      lte: SortableValue
+      between: [SortableValue, SortableValue]
+      beginsWith: SortableValue
+    }>)
+  | { or: Condition<T>[] }
+  | { and: Condition<T>[] }
+  | { not: Condition<T> }
 
 export type QueryOptions<E extends Entity<any, any, any, any, any, any, any, any, any>> = {
   consistent?: boolean
   tableName?: string
   limit?: number
   order?: 'asc' | 'desc' // default asc
-  // filter?: Condition // TODO: Implement Condition
+  filter?: Condition<InferEntity<E>>
   startKey?: Record<string, any>
 }
 

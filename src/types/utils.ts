@@ -108,3 +108,14 @@ export type Prettify<T> = {
 export type ResolveDynamoType<T extends 'string' | 'number' | 'binary'> = T extends 'number'
   ? number
   : string
+
+/**
+ * Enforces that exactly one key from the object T is present.
+ *
+ * This is useful for mutually exclusive options.
+ *
+ * @template T - The object type with exclusive keys
+ */
+export type OneOf<T> = {
+  [K in keyof T]-?: Pick<T, K> & Partial<Record<Exclude<keyof T, K>, never>>
+}[keyof T]

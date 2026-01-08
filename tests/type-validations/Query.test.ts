@@ -1,122 +1,217 @@
 import { describe, expectTypeOf, it, test } from 'vitest'
-import { z } from 'zod'
 
 import { Query } from '../../src/actions/query/Query'
-import { defineEntity } from '../../src/functions/defineEntity'
-import { defineTable } from '../../src/functions/defineTable'
 import { InferDynamoItem } from '../../src/types/InferDynamoItem'
 import { InferEntity } from '../../src/types/InferEntity'
+import {
+  EntityCompositeAllFeatures,
+  EntityCompositeGsiString,
+  EntityCompositeLsiNumber,
+  EntityCompositeSkNumber,
+  EntityPkString
+} from '../fixtures'
 import { AssertExactKeys } from './utils/AssetExactKeys'
 
-const table = defineTable({
-  name: 'TestTable',
-  fields: {
-    pk: 'string',
-    sk: 'string',
-    gsi1pk: 'string',
-    gsi1sk: 'number',
-    gsi2pk: 'string',
-    lsi1sk: 'number'
-  },
-  primaryIndex: {
-    hashKey: 'pk',
-    rangeKey: 'sk'
-  },
-  globalIndexes: {
-    GSI1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
-    GSI2: { hashKey: 'gsi2pk' }
-  },
-  localIndexes: {
-    LSI1: { rangeKey: 'lsi1sk' }
-  }
-})
-
-const entity = defineEntity(table, {
-  name: 'User',
-  schema: z.object({
-    id: z.string(),
-    email: z.string(),
-    age: z.number(),
-    status: z.string(),
-    createdAt: z.string()
-  }),
-  key: {
-    hashKey: { fields: ['id'], calculate: ({ id }) => `USER#${id}` },
-    rangeKey: { fields: ['email'], calculate: ({ email }) => `EMAIL#${email}` }
-  },
-  globalIndexes: {
-    GSI1: {
-      hashKey: { fields: ['status'], calculate: ({ status }) => `STATUS#${status}` },
-      rangeKey: { fields: ['age'], calculate: ({ age }) => age }
-    },
-    GSI2: {
-      hashKey: { fields: ['email'], calculate: ({ email }) => `EMAIL#${email}` }
-    }
-  },
-  localIndexes: {
-    LSI1: {
-      rangeKey: { fields: ['age'], calculate: ({ age }) => age }
-    }
-  }
-})
-
-const simpleTable = defineTable({
-  name: 'SimpleTable',
-  fields: {
-    pk: 'string'
-  },
-  primaryIndex: {
-    hashKey: 'pk'
-  }
-})
-
-const simpleEntity = defineEntity(simpleTable, {
-  name: 'SimpleUser',
-  schema: z.object({
-    id: z.string()
-  }),
-  key: {
-    hashKey: { fields: ['id'], calculate: ({ id }) => `USER#${id}` }
-  }
-})
-
-const tableWithGsi = defineTable({
-  name: 'GsiTable',
-  fields: { pk: 'string', sk: 'string', gsiPk: 'string' },
-  primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
-  globalIndexes: { GSI: { hashKey: 'gsiPk' } }
-})
-const entityWithGsi = defineEntity(tableWithGsi, {
-  name: 'GsiUser',
-  schema: z.object({ id: z.string(), email: z.string(), gsiVal: z.string() }),
-  key: {
-    hashKey: { fields: ['id'], calculate: ({ id }) => id },
-    rangeKey: { fields: ['email'], calculate: ({ email }) => email }
-  },
-  globalIndexes: { GSI: { hashKey: { fields: ['gsiVal'], calculate: ({ gsiVal }) => gsiVal } } }
-})
-
-const tableWithLsi = defineTable({
-  name: 'LsiTable',
-  fields: { pk: 'string', sk: 'string', lsiSk: 'number' },
-  primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
-  localIndexes: { LSI: { rangeKey: 'lsiSk' } }
-})
-const entityWithLsi = defineEntity(tableWithLsi, {
-  name: 'LsiUser',
-  schema: z.object({ id: z.string(), date: z.string(), score: z.number() }),
-  key: {
-    hashKey: { fields: ['id'], calculate: ({ id }) => id },
-    rangeKey: { fields: ['date'], calculate: ({ date }) => date }
-  },
-  localIndexes: { LSI: { rangeKey: { fields: ['score'], calculate: ({ score }) => score } } }
-})
-
 describe('Query DSL Type Validations', () => {
-  const query = new Query().entity(entity)
+  describe('State Transitions', () => {
+    it('initial state', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures)
+      const simpleQuery = new Query().entity(EntityPkString)
+      const gsiQuery = new Query().entity(EntityCompositeGsiString)
+      const lsiQuery = new Query().entity(EntityCompositeLsiNumber)
+
+      expectTypeOf<AssertExactKeys<typeof query, 'primary' | 'lsi' | 'gsi'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof simpleQuery, 'primary'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof gsiQuery, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
+      expectTypeOf<AssertExactKeys<typeof lsiQuery, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
+    })
+
+    it('primary state', () => {
+      const q1 = new Query().entity(EntityCompositeAllFeatures).primary() // Has Sort Key
+      const q2 = new Query().entity(EntityCompositeGsiString).gsi('GSI')
+      const q3 = new Query().entity(EntityCompositeLsiNumber).lsi('LSI')
+      const q4 = new Query().entity(EntityPkString).primary() // No Sort Key
+
+      // Initial Primary State: Only Partition Key setters
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'partitionFrom' | 'partitionValue'>
+      >().toEqualTypeOf<true>()
+    })
+
+    it('range state', () => {
+      // 1. Entity with Sort Key (Primary)
+      const q1 = new Query().entity(EntityCompositeAllFeatures).primary().partitionValue('USER#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 2. Entity with Sort Key (GSI)
+      const q2 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .gsi('GSI1')
+        .partitionValue('STATUS#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 3. Entity with Sort Key (LSI)
+      const q3 = new Query().entity(EntityCompositeLsiNumber).lsi('LSI').partitionValue('USER#1')
+      // Expect range operations
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+      >().toEqualTypeOf<true>()
+
+      // 4. Entity WITHOUT Sort Key (Primary)
+      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1')
+      // Expect options/exec state (skip range)
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      // 5. Entity WITHOUT Sort Key (GSI)
+      const q5 = new Query().entity(EntityCompositeGsiString).gsi('GSI').partitionValue('STATUS#1')
+      // Expect options/exec state (skip range)
+      expectTypeOf<
+        AssertExactKeys<typeof q5, 'options' | 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+    })
+
+    it('options state', () => {
+      const q1 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q2 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .gsi('GSI1')
+        .partitionValue('STATUS#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q3 = new Query()
+        .entity(EntityCompositeLsiNumber)
+        .lsi('LSI')
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1').options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q5 = new Query()
+        .entity(EntityCompositeGsiString)
+        .gsi('GSI')
+        .partitionValue('STATUS#1')
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q5, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+    })
+
+    it('output state', () => {
+      const q1 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .raw()
+      expectTypeOf<AssertExactKeys<typeof q1, 'exec'>>().toEqualTypeOf<true>()
+
+      const q2 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .select(['email'])
+      expectTypeOf<AssertExactKeys<typeof q2, 'exec'>>().toEqualTypeOf<true>()
+
+      const q3 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .count()
+      expectTypeOf<AssertExactKeys<typeof q3, 'exec'>>().toEqualTypeOf<true>()
+
+      const q4 = new Query().entity(EntityPkString).primary().partitionValue('USER#1').raw()
+      expectTypeOf<AssertExactKeys<typeof q4, 'exec'>>().toEqualTypeOf<true>()
+
+      const q5 = new Query()
+        .entity(EntityCompositeGsiString)
+        .gsi('GSI')
+        .partitionValue('STATUS#1')
+        .count()
+      expectTypeOf<AssertExactKeys<typeof q5, 'exec'>>().toEqualTypeOf<true>()
+
+      // options -> output state
+      const q6 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .raw()
+      expectTypeOf<AssertExactKeys<typeof q6, 'exec'>>().toEqualTypeOf<true>()
+
+      const q7 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .select(['email'])
+      expectTypeOf<AssertExactKeys<typeof q7, 'exec'>>().toEqualTypeOf<true>()
+
+      const q8 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .count()
+      expectTypeOf<AssertExactKeys<typeof q8, 'exec'>>().toEqualTypeOf<true>()
+
+      const q9 = new Query()
+        .entity(EntityCompositeAllFeatures)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+
+      // exec should also be possible directly after options
+      expectTypeOf(q9.exec).toBeFunction()
+    })
+  })
 
   describe('Primary Query (Composite Key)', () => {
     test('Partition Key', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures)
+
       // Valid partitionValue
       query.primary().partitionValue('USER#123').rangeNoCondition().exec()
       // Valid partitionFrom
@@ -131,6 +226,8 @@ describe('Query DSL Type Validations', () => {
     })
 
     test('Range Conditions (String Key)', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures)
+
       const q = query.primary().partitionValue('USER#1')
 
       // eq
@@ -163,6 +260,8 @@ describe('Query DSL Type Validations', () => {
     })
 
     test('Options and State Transitions', () => {
+      const query = new Query().entity(EntityCompositeAllFeatures)
+
       // Valid with options (requires rangeNoCondition if sort key exists)
       query
         .primary()
@@ -214,7 +313,22 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('GSI Query (Number Sort Key)', () => {
+    const query = new Query().entity(EntityCompositeAllFeatures)
+
     const gsi = query.gsi('GSI1')
+
+    test('Partition Key', () => {
+      const q = gsi.partitionFrom({ status: 'ACTIVE' })
+
+      // @ts-expect-error - missing required field
+      gsi.partitionFrom({})
+
+      // @ts-expect-error - invalid field
+      gsi.partitionFrom({ invalid: 'field' })
+
+      // @ts-expect-error - invalid type
+      gsi.partitionFrom({ status: 123 })
+    })
 
     test('Range Conditions (Number Key)', () => {
       const q = gsi.partitionValue('STATUS#ACTIVE')
@@ -237,11 +351,7 @@ describe('Query DSL Type Validations', () => {
 
       // rangeFrom
       q.rangeFrom({
-        id: 'x',
-        email: 'test',
-        age: 30,
-        status: 'active',
-        createdAt: '2023-01-01'
+        age: 30
       }).exec()
       // @ts-expect-error - invalid input type
       q.rangeFrom({ age: '30' })
@@ -261,6 +371,8 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('LSI Query', () => {
+    const query = new Query().entity(EntityCompositeAllFeatures)
+
     const lsi = query.lsi('LSI1')
 
     test('Structure', () => {
@@ -276,7 +388,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Simple Table (Hash Only)', () => {
-    const simpleQ = new Query().entity(simpleEntity)
+    const simpleQ = new Query().entity(EntityPkString)
 
     test('No Range Operations', () => {
       simpleQ.primary().partitionValue('USER#1').exec()
@@ -290,17 +402,37 @@ describe('Query DSL Type Validations', () => {
     })
   })
 
+  describe('Primary Query (Number Sort Key)', () => {
+    const query = new Query().entity(EntityCompositeSkNumber)
+
+    test('Partiton Value and Range', () => {
+      query.primary().partitionValue('USER#1').range({ gt: 100 }).exec()
+      query
+        .primary()
+        .partitionValue('USER#1')
+        .range({ between: [100, 200] })
+        .exec()
+
+      // @ts-expect-error - string not allowed for number sort key
+      query.primary().partitionValue('USER#1').range({ eq: '100' })
+      // @ts-expect-error - beginsWith not allowed for number sort key
+      query.primary().partitionValue('USER#1').range({ beginsWith: '1' })
+    })
+  })
+
   describe('Return Types', () => {
+    const query = new Query().entity(EntityCompositeAllFeatures)
+
     const q = query.primary().partitionValue('U').rangeNoCondition()
 
     test('Entity', async () => {
       const res = await q.exec()
-      expectTypeOf(res).toEqualTypeOf<InferEntity<typeof entity>[]>()
+      expectTypeOf(res).toEqualTypeOf<InferEntity<typeof EntityCompositeAllFeatures>[]>()
     })
 
     test('Raw', async () => {
       const res = await q.raw().exec()
-      expectTypeOf(res).toEqualTypeOf<InferDynamoItem<typeof entity>[]>()
+      expectTypeOf(res).toEqualTypeOf<InferDynamoItem<typeof EntityCompositeAllFeatures>[]>()
     })
 
     test('Count', async () => {
@@ -310,7 +442,9 @@ describe('Query DSL Type Validations', () => {
 
     test('Select', async () => {
       const res = await q.select(['email', 'age']).exec()
-      expectTypeOf(res).toEqualTypeOf<Pick<InferEntity<typeof entity>, 'email' | 'age'>[]>()
+      expectTypeOf(res).toEqualTypeOf<
+        Pick<InferEntity<typeof EntityCompositeAllFeatures>, 'email' | 'age'>[]
+      >()
     })
 
     test('Chaining Output Ops', () => {
@@ -320,190 +454,6 @@ describe('Query DSL Type Validations', () => {
       // select().count() -> Error
       // @ts-expect-error
       q.select(['id']).count()
-    })
-  })
-
-  describe('State Transitions', () => {
-    it('initial state', () => {
-      const query = new Query().entity(entity)
-      const simpleQuery = new Query().entity(simpleEntity)
-      const gsiQuery = new Query().entity(entityWithGsi)
-      const lsiQuery = new Query().entity(entityWithLsi)
-
-      expectTypeOf<AssertExactKeys<typeof query, 'primary' | 'lsi' | 'gsi'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof simpleQuery, 'primary'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof gsiQuery, 'primary' | 'gsi'>>().toEqualTypeOf<true>()
-      expectTypeOf<AssertExactKeys<typeof lsiQuery, 'primary' | 'lsi'>>().toEqualTypeOf<true>()
-    })
-
-    it('primary state', () => {
-      const q1 = new Query().entity(entity).primary() // Has Sort Key
-      const q2 = new Query().entity(entityWithGsi).gsi('GSI')
-      const q3 = new Query().entity(entityWithLsi).lsi('LSI')
-      const q4 = new Query().entity(simpleEntity).primary() // No Sort Key
-
-      // Initial Primary State: Only Partition Key setters
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'partitionFrom' | 'partitionValue'>
-      >().toEqualTypeOf<true>()
-    })
-
-    it('range state', () => {
-      // 1. Entity with Sort Key (Primary)
-      const q1 = new Query().entity(entity).primary().partitionValue('USER#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
-
-      // 2. Entity with Sort Key (GSI)
-      const q2 = new Query().entity(entity).gsi('GSI1').partitionValue('STATUS#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
-
-      // 3. Entity with Sort Key (LSI)
-      const q3 = new Query().entity(entityWithLsi).lsi('LSI').partitionValue('USER#1')
-      // Expect range operations
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'range' | 'rangeFrom' | 'rangeNoCondition'>
-      >().toEqualTypeOf<true>()
-
-      // 4. Entity WITHOUT Sort Key (Primary)
-      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1')
-      // Expect options/exec state (skip range)
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'options' | 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      // 5. Entity WITHOUT Sort Key (GSI)
-      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1')
-      // Expect options/exec state (skip range)
-      expectTypeOf<
-        AssertExactKeys<typeof q5, 'options' | 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-    })
-
-    it('options state', () => {
-      const q1 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q1, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      const q2 = new Query()
-        .entity(entity)
-        .gsi('GSI1')
-        .partitionValue('STATUS#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q2, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      const q3 = new Query()
-        .entity(entityWithLsi)
-        .lsi('LSI')
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q3, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1').options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q4, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-
-      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1').options({})
-      expectTypeOf<
-        AssertExactKeys<typeof q5, 'raw' | 'select' | 'count' | 'exec'>
-      >().toEqualTypeOf<true>()
-    })
-
-    it('output state', () => {
-      const q1 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .raw()
-      expectTypeOf<AssertExactKeys<typeof q1, 'exec'>>().toEqualTypeOf<true>()
-
-      const q2 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .select(['email'])
-      expectTypeOf<AssertExactKeys<typeof q2, 'exec'>>().toEqualTypeOf<true>()
-
-      const q3 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .count()
-      expectTypeOf<AssertExactKeys<typeof q3, 'exec'>>().toEqualTypeOf<true>()
-
-      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1').raw()
-      expectTypeOf<AssertExactKeys<typeof q4, 'exec'>>().toEqualTypeOf<true>()
-
-      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1').count()
-      expectTypeOf<AssertExactKeys<typeof q5, 'exec'>>().toEqualTypeOf<true>()
-
-      // options -> output state
-      const q6 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .raw()
-      expectTypeOf<AssertExactKeys<typeof q6, 'exec'>>().toEqualTypeOf<true>()
-
-      const q7 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .select(['email'])
-      expectTypeOf<AssertExactKeys<typeof q7, 'exec'>>().toEqualTypeOf<true>()
-
-      const q8 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-        .count()
-      expectTypeOf<AssertExactKeys<typeof q8, 'exec'>>().toEqualTypeOf<true>()
-
-      const q9 = new Query()
-        .entity(entity)
-        .primary()
-        .partitionValue('USER#1')
-        .rangeNoCondition()
-        .options({})
-
-      // exec should also be possible directly after options
-      expectTypeOf(q9.exec).toBeFunction()
     })
   })
 })

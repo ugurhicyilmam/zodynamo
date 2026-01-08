@@ -10,6 +10,7 @@ import {
   QueryKeyTypes,
   QueryOptions,
   QueryOutputMode,
+  QueryPartitionFromInput,
   QueryRangeFromInput,
   QueryState,
   RangeOptions,
@@ -43,7 +44,9 @@ export type QuerySelector<E extends Entity<any, any, any, any, any, any, any, an
        *
        * @param indexName - The name of the GSI to query.
        */
-      gsi<N extends GlobalIndexName<E['table']>>(indexName: N): QueryChain<E, { kind: 'gsi'; name: N }>
+      gsi<N extends GlobalIndexName<E['table']>>(
+        indexName: N
+      ): QueryChain<E, { kind: 'gsi'; name: N }>
     }) &
   (LocalIndexName<E['table']> extends never
     ? unknown
@@ -53,7 +56,9 @@ export type QuerySelector<E extends Entity<any, any, any, any, any, any, any, an
          *
          * @param indexName - The name of the LSI to query.
          */
-        lsi<N extends LocalIndexName<E['table']>>(indexName: N): QueryChain<E, { kind: 'lsi'; name: N }>
+        lsi<N extends LocalIndexName<E['table']>>(
+          indexName: N
+        ): QueryChain<E, { kind: 'lsi'; name: N }>
       })
 
 type QueryBuilderBase<
@@ -61,9 +66,10 @@ type QueryBuilderBase<
   Index extends QueryIndexSelector<E>,
   Output extends QueryOutputMode<E>,
   State extends QueryState
-> = QueryHasSortKey<E, Index> extends true
-  ? QueryBuilder<E, Index, Output, State>
-  : Omit<QueryBuilder<E, Index, Output, State>, 'range' | 'rangeFrom' | 'rangeNoCondition'>
+> =
+  QueryHasSortKey<E, Index> extends true
+    ? QueryBuilder<E, Index, Output, State>
+    : Omit<QueryBuilder<E, Index, Output, State>, 'range' | 'rangeFrom' | 'rangeNoCondition'>
 
 export type QueryChain<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
@@ -128,7 +134,7 @@ export class QueryBuilder<
   /* Partition Key Operations */
 
   partitionFrom(
-    domain: E['key']['hashKey']['calculate'] extends (item: infer Input) => any ? Input : never
+    domain: QueryPartitionFromInput<E, Extract<Index, QueryIndexSelector<E>>>
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'PARTITION_SET'> {
     return this as any
   }

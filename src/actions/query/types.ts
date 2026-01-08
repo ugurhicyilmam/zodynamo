@@ -1,5 +1,6 @@
 import { Entity } from '../../types/Entity'
 import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
+import { PickByPaths } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
 
 /**
@@ -151,27 +152,42 @@ export type QueryKeyTypes<
         : never
       : never
 
+export type QueryPartitionFromInput<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Selected extends QueryIndexSelector<E>
+> = Selected extends { kind: 'primary' }
+  ? PickByPaths<InferEntity<E>, E['key']['hashKey']['fields'][number]>
+  : Selected extends { kind: 'gsi'; name: infer N }
+    ? N extends keyof NonNullable<E['globalIndexes']>
+      ? PickByPaths<InferEntity<E>, NonNullable<E['globalIndexes']>[N]['hashKey']['fields'][number]>
+      : never
+    : Selected extends { kind: 'lsi' } // LSI shares the primary PK
+      ? PickByPaths<InferEntity<E>, E['key']['hashKey']['fields'][number]>
+      : never
+
 export type QueryRangeFromInput<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Selected extends QueryIndexSelector<E>
 > = Selected extends { kind: 'primary' }
-  ? E['key']['rangeKey'] extends { calculate: (item: infer Input) => any }
-    ? Input
+  ? E['key']['rangeKey'] extends { fields: readonly string[] }
+    ? PickByPaths<InferEntity<E>, E['key']['rangeKey']['fields'][number]>
     : never
   : Selected extends { kind: 'gsi'; name: infer N }
     ? N extends keyof NonNullable<E['globalIndexes']>
-      ? NonNullable<E['globalIndexes']>[N]['rangeKey'] extends {
-          calculate: (item: infer Input) => any
-        }
-        ? Input
+      ? NonNullable<E['globalIndexes']>[N]['rangeKey'] extends { fields: readonly string[] }
+        ? PickByPaths<
+            InferEntity<E>,
+            NonNullable<E['globalIndexes']>[N]['rangeKey']['fields'][number]
+          >
         : never
       : never
     : Selected extends { kind: 'lsi'; name: infer N }
       ? N extends keyof NonNullable<E['localIndexes']>
-        ? NonNullable<E['localIndexes']>[N]['rangeKey'] extends {
-            calculate: (item: infer Input) => any
-          }
-          ? Input
+        ? NonNullable<E['localIndexes']>[N]['rangeKey'] extends { fields: readonly string[] }
+          ? PickByPaths<
+              InferEntity<E>,
+              NonNullable<E['localIndexes']>[N]['rangeKey']['fields'][number]
+            >
           : never
         : never
       : never

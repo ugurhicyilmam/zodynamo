@@ -1,105 +1,188 @@
-Query
+# Query Builder API
 
-- entity()
-  - primary()
-    - partitionFrom()
-    - partitionValue()
-  - lsi()
-    - partitionFrom()
-    - partitionValue()
-  - gsi()
-    - partitionFrom()
-    - partitionValue()
-- entities()
+## 1. Builder Flow (Step-by-Step)
 
-We'll update the structure for Query.
+### Base Chain (Always Required)
 
-First three step stays the same,
-new Query().entity(SomeEntity)
-.(primary|lsi|gsi)()
-.(partitionFrom|partitionValue)();
+```ts
+new Query()
+  .entity(SomeEntity)
+  .(primary | lsi | gsi)()
+  .(partitionFrom | partitionValue)()
+```
 
-Then we'll have the sort step if the table defines a range key, otherwise it'll be skipped. Methods to be renamed as range.
+---
 
-We'll have two methods for range.
+### Range Step (Conditional)
 
-- .range(RangeOptions)
-- .rangeFrom(Args) - works similar to partitionFrom, args are the fields used to generate the rangeKey. Basically works like eq option but calculated automatically with the fields.
-- .rangeNoCondition() - Goes to the next step without defining any range condition.
+- **If the selected index defines a range key** → one of the following **must** be called:
+  - `.range(...)`
+  - `.rangeFrom(...)`
+  - `.rangeNoCondition()`
 
-RangeOptions:
+- **If the selected index does NOT define a range key** → this step is skipped automatically.
 
-- eq: string | number | boolean (same as rangeKey type)
-- gt: string | number | boolean (same as rangeKey type)
-- gte: string | number | boolean (same as rangeKey type)
-- lt: string | number | boolean (same as rangeKey type)
-- lte: string | number | boolean (same as rangeKey type)
-- between: [string | number | boolean, string | number | boolean] (same as rangeKey type)
-- beginsWith: string (only if rangeKey type is string)
+---
 
-Only one of the options can be used at a time.
+### Options & Output Step
 
-If no rangeKey defined in the table, directly goes to the next step.
+After the range step (or immediately if skipped):
 
-Next step is:
+- Optional:
+  - `.options(QueryOptions)`
 
-- .options(QueryOptions)
-- .raw()
-- .select(Path[])
-- .count()
-- .exec()
+- Then choose **exactly one** output mode:
+  - `.raw()`
+  - `.select(paths)`
+  - `.count()`
 
-QueryOptions:
+- Final step:
+  - `.exec()`
 
-- consistent: boolean (default: false) - only available if (primary|lsi), not available if (gsi)
-- tableName: string (overrides the entity's table name)
-- limit number (integer >= 1)
-- order: 'asc' | 'desc' (default: 'asc')
-- filter: Condition
-- startKey: DynamoKey
+---
 
-Path: string[] - path to the field in the entity
+## 2. Partition Step
 
-Condition:
-Each condition contains an attribute path and an operator. You can only specify one operator per condition. Or a rawAttr for the internal entity attribute path.
+### `.partitionValue(value)`
 
-ConditionOperator:
-value conditions
+Provide the partition key value directly.
 
-- eq: scalar
-- ne: scalar
-- in: scalar[]
-- contains: scalar (only for string, sets or list attributes)
-- exists: boolean
-- type: 'string' | 'number' | 'boolean' | 'binary' | 'list' | 'map' | 'null' | 'number_set' | 'string_set' | 'binary_set'
+### `.partitionFrom(args)`
 
-scalar = boolean, number, string, or binary depending on the attribute type
+Compute the partition key automatically from provided fields.
 
-range conditions
-gte: sortable
-gt: sortable
-lte: sortable
-lt: sortable
-between: [sortable, sortable]
-beginsWith: sortable
+---
 
-sortable = string | number | binary depending on the attr type
+## 3. Range Step (Only if Range Key Exists)
 
-Valid conditions:
+### `.range(options: RangeOptions)`
+
+Provide an explicit range condition.
+
+### `.rangeFrom(args)`
+
+Compute the range key from fields used to generate the range key.
+
+### `.rangeNoCondition()`
+
+Proceed without defining any range condition.
+
+---
+
+### RangeOptions
+
+Exactly **one** operator must be specified.
+
+- `eq: T`
+- `gt: T`
+- `gte: T`
+- `lt: T`
+- `lte: T`
+- `between: [T, T]`
+- `beginsWith: string` _(only when range key type is string)_
+
+Where `T` matches the range key type (`string | number | boolean`).
+
+---
+
+## 4. Options Step
+
+### `.options(opts: QueryOptions)` _(Optional)_
+
+```ts
+interface QueryOptions {
+  consistent?: boolean // default: false (primary | lsi only)
+  tableName?: string
+  limit?: number // integer >= 1
+  order?: 'asc' | 'desc' // default: 'asc'
+  filter?: Condition
+  startKey?: DynamoKey
+}
+```
+
+---
+
+## 5. Output Modes (Choose Exactly One)
+
+### `.raw()`
+
+Return raw query results.
+
+### `.select(paths: Path[])`
+
+Select specific entity fields.
+
+```ts
+type Path = string[]
+```
+
+### `.count()`
+
+Return count-only result.
+
+---
+
+## 6. Execution
+
+### `.exec()`
+
+Executes the query. Must be the final call in the chain.
+
+---
+
+## 7. Filter Conditions
+
+### Condition Shape
+
+Each condition targets either:
+
+- `attr: string` – logical entity field
+- `rawAttr: string` – internal attribute path
+
+And defines **exactly one** operator.
+
+---
+
+### Value Operators
+
+- `eq: scalar`
+- `ne: scalar`
+- `in: scalar[]`
+- `contains: scalar`
+- `exists: boolean`
+- `type: 'string' | 'number' | 'boolean' | 'binary' | 'list' | 'map' | 'null' | 'number_set' | 'string_set' | 'binary_set'`
+
+`scalar = boolean | number | string | binary`
+
+---
+
+### Range Operators
+
+- `gte: sortable`
+- `gt: sortable`
+- `lte: sortable`
+- `lt: sortable`
+- `between: [sortable, sortable]`
+- `beginsWith: sortable`
+
+`sortable = string | number | binary`
+
+---
+
+### Logical Composition
+
+```ts
+{ and: Condition[] }
+{ or: Condition[] }
+```
+
+### Examples
+
+```ts
 { attr: 'name', eq: 'foo' }
 { rawAttr: 'n', eq: 'foo' }
 { attr: 'age', gte: 18 }
-{ rawAttr: 'a', gte: 18 }
 
-Operations can be combined:
-
-{ or: [{ attr: 'age', gte: 18 }, { attr: 'age', lte: 18 }]}
+{ or: [{ attr: 'age', gte: 18 }, { attr: 'age', lte: 18 }] }
 { and: [{ attr: 'age', gte: 18 }, { attr: 'age', lte: 18 }] }
-
-If options if defined, next step is .raw(), .select(), .count(), .exec()
-
-If no options defined, next step is .raw(), .select(), .count(), .exec()
-
-Only one option can be selected between .raw(), .select(), .count().
-
-.exec() is the final step.
+```

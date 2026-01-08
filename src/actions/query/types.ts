@@ -10,6 +10,12 @@ export type QueryIndexSelector<E extends Entity<any, any, any, any, any, any, an
   | { kind: 'gsi'; name: GlobalIndexName<E['table']> }
   | { kind: 'lsi'; name: LocalIndexName<E['table']> }
 
+export type QuerySelectedIndex<E extends Entity<any, any, any, any, any, any, any, any, any>> =
+  QueryIndexSelector<E>
+
+export type QueryIndexOrNull<E extends Entity<any, any, any, any, any, any, any, any, any>> =
+  QuerySelectedIndex<E> | null
+
 export type QueryState = 'INITIAL' | 'PARTITION_SET' | 'SORT_SET' | 'OPTIONS_SET'
 
 /**
@@ -83,6 +89,27 @@ export type ResolveQueryChain<
   Output extends 'entity' ? never : QueryOutputOperations
 >
 
+export type QueryHasSortKey<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Selected extends QueryIndexSelector<E>
+> = Selected extends { kind: 'primary' }
+  ? E['table']['primaryIndex']['rangeKey'] extends string
+    ? true
+    : false
+  : Selected extends { kind: 'gsi'; name: infer N }
+    ? N extends keyof NonNullable<E['globalIndexes']>
+      ? NonNullable<E['globalIndexes']>[N]['rangeKey'] extends { calculate: any }
+        ? true
+        : false
+      : false
+    : Selected extends { kind: 'lsi'; name: infer N }
+      ? N extends keyof NonNullable<E['localIndexes']>
+        ? NonNullable<E['localIndexes']>[N]['rangeKey'] extends { calculate: any }
+          ? true
+          : false
+        : false
+      : false
+
 /**
  * Helper to resolve the partition and sort key types for a given entity and index.
  * This will be used by the builder to strictly type `.partitionValue(val)` and sort ops.
@@ -121,5 +148,30 @@ export type QueryKeyTypes<
               ? R
               : never
           }
+        : never
+      : never
+
+export type QueryRangeFromInput<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Selected extends QueryIndexSelector<E>
+> = Selected extends { kind: 'primary' }
+  ? E['key']['rangeKey'] extends { calculate: (item: infer Input) => any }
+    ? Input
+    : never
+  : Selected extends { kind: 'gsi'; name: infer N }
+    ? N extends keyof NonNullable<E['globalIndexes']>
+      ? NonNullable<E['globalIndexes']>[N]['rangeKey'] extends {
+          calculate: (item: infer Input) => any
+        }
+        ? Input
+        : never
+      : never
+    : Selected extends { kind: 'lsi'; name: infer N }
+      ? N extends keyof NonNullable<E['localIndexes']>
+        ? NonNullable<E['localIndexes']>[N]['rangeKey'] extends {
+            calculate: (item: infer Input) => any
+          }
+          ? Input
+          : never
         : never
       : never

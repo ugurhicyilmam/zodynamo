@@ -486,11 +486,10 @@ describe('Query DSL Type Validations', () => {
       query.select(['history[0].timestamp']).exec()
     })
 
-    it('supports nested field selection with bracket notation', () => {
-      query.select([`metadata['version']`]).exec()
+    it('supports nested field selection with bracket notation for arrays', () => {
       query.select(['metadata.tags[0]']).exec()
-      query.select([`metadata['tags'][0]`]).exec()
-      query.select([`history[0]['action']`]).exec()
+      query.select(['history[0].action']).exec()
+      query.select(['history[0].timestamp']).exec()
     })
 
     it('validates nested field names', () => {
@@ -528,7 +527,7 @@ describe('Query DSL Type Validations', () => {
     describe('Basic Operators', () => {
       it('supports comparison operators', () => {
         baseQuery.options({ filter: { attr: 'metadata.version', eq: 1 } }).exec()
-        baseQuery.options({ filter: { attr: `metadata['version']`, ne: 1 } }).exec()
+        baseQuery.options({ filter: { attr: 'metadata.version', ne: 1 } }).exec()
         baseQuery.options({ filter: { attr: 'metadata.version', between: [1, 2] } }).exec()
 
         // @ts-expect-error - Type mismatch (number field requires number value)

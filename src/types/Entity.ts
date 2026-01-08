@@ -9,7 +9,7 @@ import {
   GlobalIndexName,
   LocalIndexName
 } from './EntityKey'
-import { FieldPath, PickByPaths } from './FieldPath'
+import { KeyFieldPath, PickByPaths } from './FieldPath'
 import { Table } from './Table'
 import { Prettify } from './utils'
 
@@ -25,7 +25,7 @@ import { Prettify } from './utils'
  */
 type KeyPartDefinition<
   TSchema extends ZodSchema,
-  TKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
+  TKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
   TResult
 > = {
   fields: TKeyFields
@@ -46,7 +46,7 @@ export type EntityLocalIndexesDefinition<
   TTable extends Table<any>,
   TSchema extends ZodSchema,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
   >
 > = {
   [K in keyof TLocalIndexRangeKeyFields]: {
@@ -72,7 +72,7 @@ export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema ext
   [K in GlobalIndexName<TTable>]?: {
     hashKey: KeyPartDefinition<
       TSchema,
-      readonly FieldPath<z.infer<TSchema>>[],
+      readonly KeyFieldPath<z.infer<TSchema>>[],
       EntityGlobalIndexHashKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
     >
   } & (TTable['globalIndexes'] extends Record<string, any>
@@ -80,7 +80,7 @@ export type EntityGlobalIndexesDefinition<TTable extends Table<any>, TSchema ext
       ? {
           rangeKey: KeyPartDefinition<
             TSchema,
-            readonly FieldPath<z.infer<TSchema>>[],
+            readonly KeyFieldPath<z.infer<TSchema>>[],
             EntityGlobalIndexRangeKeyValue<TTable, Extract<K, GlobalIndexName<TTable>>>
           >
         }
@@ -92,7 +92,7 @@ type EntityLocalIndexesOption<
   TTable extends Table<any>,
   TSchema extends ZodSchema,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
   >
 > =
   LocalIndexName<TTable> extends never
@@ -111,11 +111,11 @@ export interface Entity<
   TTable extends Table<any>,
   TName extends string,
   TSchema extends ZodSchema,
-  THashKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
-  TRangeKeyFields extends readonly FieldPath<z.infer<TSchema>>[],
+  THashKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
+  TRangeKeyFields extends readonly KeyFieldPath<z.infer<TSchema>>[],
   TGlobalIndexes extends Partial<Record<GlobalIndexName<TTable>, any>>,
   TLocalIndexRangeKeyFields extends Partial<
-    Record<LocalIndexName<TTable>, readonly FieldPath<z.infer<TSchema>>[]>
+    Record<LocalIndexName<TTable>, readonly KeyFieldPath<z.infer<TSchema>>[]>
   >,
   TTtl extends ((domain: z.infer<TSchema>) => number | undefined) | undefined,
   TEntityType extends string | undefined,

@@ -67,9 +67,11 @@ type AllowedQueryOperations<
     ? HasSortKey extends true
       ? SortKeyOperations
       : SortKeyOperations | QueryOptionsOperations | QueryExecOperations
-    : State extends 'SORT_SET' | 'OPTIONS_SET'
+    : State extends 'SORT_SET'
       ? QueryOptionsOperations | QueryExecOperations
-      : never
+      : State extends 'OPTIONS_SET'
+        ? QueryOutputOperations | QueryExecOperations
+        : never
 
 export type ResolveQueryChain<
   Base,

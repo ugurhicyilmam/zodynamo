@@ -393,5 +393,117 @@ describe('Query DSL Type Validations', () => {
         AssertExactKeys<typeof q5, 'options' | 'raw' | 'select' | 'count' | 'exec'>
       >().toEqualTypeOf<true>()
     })
+
+    it('options state', () => {
+      const q1 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q1, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q2 = new Query()
+        .entity(entity)
+        .gsi('GSI1')
+        .partitionValue('STATUS#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q2, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q3 = new Query()
+        .entity(entityWithLsi)
+        .lsi('LSI')
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q3, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1').options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q4, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+
+      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1').options({})
+      expectTypeOf<
+        AssertExactKeys<typeof q5, 'raw' | 'select' | 'count' | 'exec'>
+      >().toEqualTypeOf<true>()
+    })
+
+    it('output state', () => {
+      const q1 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .raw()
+      expectTypeOf<AssertExactKeys<typeof q1, 'exec'>>().toEqualTypeOf<true>()
+
+      const q2 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .select(['email'])
+      expectTypeOf<AssertExactKeys<typeof q2, 'exec'>>().toEqualTypeOf<true>()
+
+      const q3 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .count()
+      expectTypeOf<AssertExactKeys<typeof q3, 'exec'>>().toEqualTypeOf<true>()
+
+      const q4 = new Query().entity(simpleEntity).primary().partitionValue('USER#1').raw()
+      expectTypeOf<AssertExactKeys<typeof q4, 'exec'>>().toEqualTypeOf<true>()
+
+      const q5 = new Query().entity(entityWithGsi).gsi('GSI').partitionValue('STATUS#1').count()
+      expectTypeOf<AssertExactKeys<typeof q5, 'exec'>>().toEqualTypeOf<true>()
+
+      // options -> output state
+      const q6 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .raw()
+      expectTypeOf<AssertExactKeys<typeof q6, 'exec'>>().toEqualTypeOf<true>()
+
+      const q7 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .select(['email'])
+      expectTypeOf<AssertExactKeys<typeof q7, 'exec'>>().toEqualTypeOf<true>()
+
+      const q8 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+        .count()
+      expectTypeOf<AssertExactKeys<typeof q8, 'exec'>>().toEqualTypeOf<true>()
+
+      const q9 = new Query()
+        .entity(entity)
+        .primary()
+        .partitionValue('USER#1')
+        .rangeNoCondition()
+        .options({})
+
+      // exec should also be possible directly after options
+      expectTypeOf(q9.exec).toBeFunction()
+    })
   })
 })

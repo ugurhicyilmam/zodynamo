@@ -11,28 +11,28 @@ import { InferEntity } from '../../types/InferEntity'
  * @template State - The current state of the builder (enforces partition key requirement).
  */
 import { BaseQueryBuilder } from './BaseQuery'
-import { QueryKeyTypes, QueryOutputMode, QueryState, ResolveQueryChain } from './types'
+import {
+  QueryKeyTypes,
+  QueryOptions,
+  QueryOutputMode,
+  QueryState,
+  RangeOptions,
+  ResolveQueryChain
+} from './types'
 
 export type LsiQuery<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL',
-  Modifiers extends string = never
-> = ResolveQueryChain<
-  LsiQueryBuilder<E, IndexName, Output, State, Modifiers>,
-  State,
-  Modifiers,
-  Output
->
+  State extends QueryState = 'INITIAL'
+> = ResolveQueryChain<LsiQueryBuilder<E, IndexName, Output, State>, State, Output>
 
 export class LsiQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   IndexName extends LocalIndexName<E['table']>,
   Output extends QueryOutputMode<E> = 'entity',
-  State extends QueryState = 'INITIAL',
-  Modifiers extends string = never
-> extends BaseQueryBuilder<E, Output, State, Modifiers> {
+  State extends QueryState = 'INITIAL'
+> extends BaseQueryBuilder<E, Output, State> {
   protected _indexName: IndexName
 
   constructor(entity: E, indexName: IndexName) {
@@ -49,7 +49,7 @@ export class LsiQueryBuilder<
    */
   partitionFrom(
     domain: E['key']['hashKey']['calculate'] extends (item: infer Input) => any ? Input : never
-  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
+  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET'> {
     return this as any
   }
 
@@ -60,134 +60,61 @@ export class LsiQueryBuilder<
    */
   partitionValue(
     value: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['pk']
-  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers> {
+  ): LsiQuery<E, IndexName, Output, 'PARTITION_SET'> {
     return this as any
   }
 
   /* Sort Key Operations - specific to the LSI */
 
-  /**
-   * Applies an equality condition to the LSI's sort key.
-   *
-   * @param val - The value to match.
-   */
-  sortEquals(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  range(
+    options: RangeOptions<
+      QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'] extends string | number | boolean
+        ? QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+        : never
+    >
   ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
     return this as any
   }
 
-  /**
-   * Applies a "begins with" condition to the LSI's sort key.
-   * Only available if the LSI has a string sort key.
-   *
-   * @param val - The prefix to check.
-   */
-  sortBeginsWith(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'] extends string ? string : never
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers> {
-    return this as any
-  }
-
-  /**
-   * Applies a "between" condition to the LSI's sort key.
-   *
-   * @param min - The minimum value (inclusive).
-   * @param max - The maximum value (inclusive).
-   */
-  sortBetween(
-    min: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk'],
-    max: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers> {
-    return this as any
-  }
-
-  /**
-   * Applies a "greater than" condition to the LSI's sort key.
-   *
-   * @param val - The value to compare against.
-   */
-  sortGreaterThan(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
+  rangeFrom(
+    args: NonNullable<E['localIndexes']>[IndexName]['rangeKey'] extends {
+      calculate: (item: infer Input) => any
+    }
+      ? Input
+      : never
   ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
     return this as any
   }
 
-  /**
-   * Applies a "greater than or equal to" condition to the LSI's sort key.
-   *
-   * @param val - The value to compare against.
-   */
-  sortGreaterThanOrEqualTo(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
-    return this as any
-  }
-
-  /**
-   * Applies a "less than" condition to the LSI's sort key.
-   *
-   * @param val - The value to compare against.
-   */
-  sortLessThan(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
-    return this as any
-  }
-
-  /**
-   * Applies a "less than or equal to" condition to the LSI's sort key.
-   *
-   * @param val - The value to compare against.
-   */
-  sortLessThanOrEqualTo(
-    val: QueryKeyTypes<E, { kind: 'lsi'; name: IndexName }>['sk']
-  ): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
+  rangeNoCondition(): LsiQuery<E, IndexName, Output, 'SORT_SET'> {
     return this as any
   }
 
   /* Modifiers */
 
-  /**
-   * Enables strict consistency for the read.
-   *
-   * @param enabled - Whether to use strongly consistent reads. Defaults to true.
-   */
-  consistentRead(
-    enabled: boolean = true
-  ): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'consistentRead'> {
+  options(options: QueryOptions<E>): LsiQuery<E, IndexName, Output, 'OPTIONS_SET'> {
     return this as any
   }
 
-  limit(limit: number): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'limit'> {
-    return super.limit(limit)
-  }
-
-  startKey(
-    key: Record<string, any>
-  ): LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers | 'startKey'> {
-    return super.startKey(key)
-  }
-
-  raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET', Modifiers> {
+  raw(): LsiQuery<E, IndexName, 'raw', 'OPTIONS_SET'> {
     return super.raw()
   }
 
   select<K extends keyof InferEntity<E>>(
     fields: readonly K[]
-  ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET', Modifiers> {
+  ): LsiQuery<E, IndexName, { select: readonly K[] }, 'OPTIONS_SET'> {
     return super.select(fields)
   }
 
-  count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET', Modifiers> {
+  count(): LsiQuery<E, IndexName, 'count', 'OPTIONS_SET'> {
     return super.count()
   }
 
   exec(
     this:
-      | LsiQuery<E, IndexName, Output, 'PARTITION_SET', Modifiers>
-      | LsiQuery<E, IndexName, Output, 'SORT_SET', Modifiers>
-      | LsiQuery<E, IndexName, Output, 'OPTIONS_SET', Modifiers>
+      | LsiQuery<E, IndexName, Output, 'PARTITION_SET'>
+      | LsiQuery<E, IndexName, Output, 'SORT_SET'>
+      | LsiQuery<E, IndexName, Output, 'OPTIONS_SET'>
   ): Promise<
     Output extends 'entity'
       ? InferEntity<E>[]

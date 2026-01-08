@@ -25,18 +25,34 @@ export type QueryOutputMode<E extends Entity<any, any, any, any, any, any, any, 
   | { select: readonly (keyof InferEntity<E>)[] }
   | 'count'
 
-export type SortKeyOperations =
-  | 'sortEquals'
-  | 'sortBeginsWith'
-  | 'sortBetween'
-  | 'sortGreaterThan'
-  | 'sortGreaterThanOrEqualTo'
-  | 'sortLessThan'
-  | 'sortLessThanOrEqualTo'
+export type RangeOptions<SortKeyType> =
+  | { eq: SortKeyType }
+  | { gt: SortKeyType }
+  | { gte: SortKeyType }
+  | { lt: SortKeyType }
+  | { lte: SortKeyType }
+  | { between: [SortKeyType, SortKeyType] }
+  | (SortKeyType extends string ? { beginsWith: string } : never)
+
+export type QueryOptions<E extends Entity<any, any, any, any, any, any, any, any, any>> = {
+  consistent?: boolean
+  tableName?: string
+  limit?: number
+  order?: 'asc' | 'desc' // default asc
+  // filter?: Condition // TODO: Implement Condition
+  startKey?: Record<string, any>
+}
+
+export type GsiQueryOptions<E extends Entity<any, any, any, any, any, any, any, any, any>> = Omit<
+  QueryOptions<E>,
+  'consistent'
+>
+
+export type SortKeyOperations = 'range' | 'rangeFrom' | 'rangeNoCondition'
 
 export type PartitionKeyOperations = 'partitionFrom' | 'partitionValue'
 
-export type QueryModifierOperations = 'limit' | 'consistentRead' | 'startKey'
+export type QueryModifierOperations = 'options'
 export type QueryOutputOperations = 'raw' | 'select' | 'count'
 export type QueryExecOperations = 'exec'
 
@@ -53,11 +69,10 @@ type AllowedQueryOperations<State extends QueryState> = State extends 'INITIAL'
 export type ResolveQueryChain<
   Base,
   State extends QueryState,
-  Modifiers extends string,
   Output extends QueryOutputMode<any>
 > = Omit<
   Pick<Base, keyof Base & AllowedQueryOperations<State>>,
-  Modifiers | (Output extends 'entity' ? never : QueryOutputOperations)
+  Output extends 'entity' ? never : QueryOutputOperations
 >
 
 /**

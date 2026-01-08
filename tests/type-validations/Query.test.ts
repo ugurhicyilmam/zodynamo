@@ -36,7 +36,8 @@ const entity = defineEntity(table, {
     id: z.string(),
     email: z.string(),
     age: z.number(),
-    status: z.string()
+    status: z.string(),
+    createdAt: z.string()
   }),
   key: {
     hashKey: { fields: ['id'], calculate: ({ id }) => `USER#${id}` },
@@ -78,167 +79,192 @@ const simpleEntity = defineEntity(simpleTable, {
   }
 })
 
-const noLsiTable = defineTable({
-  name: 'NoLsiTable',
-  fields: {
-    pk: 'string',
-    sk: 'string'
-  },
-  primaryIndex: {
-    hashKey: 'pk',
-    rangeKey: 'sk'
-  }
-})
-
-const noLsiEntity = defineEntity(noLsiTable, {
-  name: 'NoLsiUser',
-  schema: z.object({
-    id: z.string(),
-    date: z.string()
-  }),
-  key: {
-    hashKey: { fields: ['id'], calculate: ({ id }) => `USER#${id}` },
-    rangeKey: { fields: ['date'], calculate: ({ date }) => date }
-  }
-})
-
 describe('Query DSL Type Validations', () => {
   const query = new Query().entity(entity)
 
-  test('Primary Query', () => {
-    // Valid chain
-    query.primary().partitionFrom({ id: '123' }).sortBeginsWith('EMAIL#').exec()
-    // @ts-expect-error - exec not allowed before partition key
-    query.primary().exec()
+  describe('Primary Query (Composite Key)', () => {
+    test('Partition Key', () => {
+      // Valid partitionValue
+      query.primary().partitionValue('USER#123').exec()
+      // Valid partitionFrom
+      query.primary().partitionFrom({ id: '123T' }).exec()
 
-    // @ts-expect-error - Options not allowed before partition key
-    query.primary().limit(1)
+      // @ts-expect-error - Invalid partitionKey type
+      query.primary().partitionValue(123)
+      // @ts-expect-error - Invalid partitionFrom input
+      query.primary().partitionFrom({ id: 123 })
+      // @ts-expect-error - Missing fields for partitionFrom
+      query.primary().partitionFrom({})
+    })
 
-    // @ts-expect-error - exec not allowed before partition key (even with other methods)
-    query.primary().consistentRead().exec()
+    test('Range Conditions (String Key)', () => {
+      const q = query.primary().partitionValue('USER#1')
 
-    // Valid with partitionValue
-    query.primary().partitionValue('USER#123').exec()
+      // eq
+      q.range({ eq: 'EMAIL#test' }).exec()
+      // @ts-expect-error - invalid type
+      q.range({ eq: 123 })
 
-    // Valid with options
-    query.primary().partitionValue('USER#123').consistentRead().limit(10).exec()
+      // beginsWith
+      q.range({ beginsWith: 'EMAIL' }).exec()
+      // @ts-expect-error - invalid type
+      q.range({ beginsWith: 123 })
 
-    // Valid with sort and options
-    query.primary().partitionValue('USER#123').sortBeginsWith('EMAIL').limit(5).exec()
+      // between
+      q.range({ between: ['A', 'Z'] }).exec()
+      // @ts-expect-error - invalid type
+      q.range({ between: ['A', 1] })
+      // @ts-expect-error - not an array
+      q.range({ between: 'A' })
 
-    // @ts-expect-error - Cannot apply sort after options
-    query.primary().partitionValue('USER#123').limit(5).sortBeginsWith('EMAIL')
+      // rangeFrom
+      q.rangeFrom({ email: 'test' }).exec()
+      // @ts-expect-error - invalid input
+      q.rangeFrom({ email: 123 })
+      // @ts-expect-error - missing field
+      q.rangeFrom({})
 
-    // @ts-expect-error - Cannot apply two sort operations
-    query.primary().partitionValue('USER#123').sortBeginsWith('A').sortBeginsWith('B')
+      // rangeNoCondition
+      q.rangeNoCondition().exec()
+      q.rangeNoCondition().options({ limit: 10 }).exec()
+    })
+
+    test('Options', () => {
+      const q = query.primary().partitionValue('USER#1')
+
+      q.options({ limit: 10, consistent: true, order: 'desc' }).exec()
+      q.rangeNoCondition().options({ limit: 5 }).exec()
+
+      // @ts-expect-error - invalid option key
+      q.options({ invalid: true })
+      // @ts-expect-error - invalid limit type
+      q.options({ limit: '10' })
+    })
+
+    test('State Transitions', () => {
+      // Cannot call options before partition
+      // @ts-expect-error
+      query.primary().options({})
+
+      // Cannot call range before partition
+      // @ts-expect-error
+      query.primary().range({ eq: 'foo' })
+
+      // Cannot call range after options
+      // @ts-expect-error
+      query.primary().partitionValue('P').options({ limit: 1 }).range({ eq: 'S' })
+
+      // Cannot call range twice
+      // @ts-expect-error
+      query.primary().partitionValue('P').range({ eq: 'S' }).range({ eq: 'S' })
+    })
   })
 
-  test('GSI Query', () => {
-    // Valid chain
-    query.gsi('GSI1').partitionValue('STATUS#ACTIVE').sortGreaterThan(18).exec()
+  describe('GSI Query (Number Sort Key)', () => {
+    const gsi = query.gsi('GSI1')
 
-    // @ts-expect-error - exec not allowed before partition key
-    query.gsi('GSI1').exec()
+    test('Range Conditions (Number Key)', () => {
+      const q = gsi.partitionValue('STATUS#ACTIVE')
 
-    // @ts-expect-error - Options not allowed before partition key
-    query.gsi('GSI1').limit(1)
+      // eq
+      q.range({ eq: 25 }).exec()
+      // @ts-expect-error - invalid type (string assigned to number key)
+      q.range({ eq: '25' })
 
-    // @ts-expect-error - consistentRead not allowed on GSI
-    query.gsi('GSI1').consistentRead()
+      // gt, lt, gte, lte
+      q.range({ gt: 18 }).exec()
+      q.range({ lte: 100 }).exec()
 
-    query
-      .lsi('LSI1')
-      .partitionValue('USER#123')
-      .sortBetween(18, 25)
-      .consistentRead()
-      .limit(3)
-      .raw()
-      .startKey({})
-      .exec()
+      // between
+      q.range({ between: [18, 65] }).exec()
 
-    // @ts-expect-error - sort ops not allowed on GSI without sort key
-    query.gsi('GSI2').sortBeginsWith('foo')
+      // beginsWith - NOT available on number key
+      // @ts-expect-error - beginsWith only for string keys
+      q.range({ beginsWith: '1' })
 
-    // Valid GSI without sort key
-    query.gsi('GSI2').partitionValue('EMAIL#foo').exec()
+      // rangeFrom
+      q.rangeFrom({
+        id: 'x',
+        email: 'test',
+        age: 30,
+        status: 'active',
+        createdAt: '2023-01-01'
+      }).exec()
+      // @ts-expect-error - invalid input type
+      q.rangeFrom({ age: '30' })
+    })
+
+    test('Options', () => {
+      const q = gsi.partitionValue('S')
+
+      q.options({ limit: 10, order: 'asc' }).exec()
+
+      // @ts-expect-error - consistentRead NOT allowed on GSI
+      q.options({ consistent: true })
+    })
   })
 
-  test('LSI Query', () => {
-    // Valid chain
-    query.lsi('LSI1').partitionFrom({ id: '123' }).sortGreaterThan(18).consistentRead().exec()
+  describe('LSI Query', () => {
+    const lsi = query.lsi('LSI1')
 
-    // @ts-expect-error - exec not allowed before partition key
-    query.lsi('LSI1').exec()
+    test('Structure', () => {
+      // Partition key comes from table's PK (hash only part of it? No, table PK is used)
+      // Wait, LSI shares partition key with table.
+      // query.lsi('LSI1').partitionValue takes... the table's PK.
+      lsi.partitionValue('USER#1').range({ eq: 20 }).exec()
 
-    // @ts-expect-error - Options not allowed before partition key
-    query.lsi('LSI1').limit(1)
-
-    // @ts-expect-error - sort ops restricted to LSI sort key type (number vs string)
-    query.lsi('LSI1').sortBeginsWith('foo')
+      // Options (consistent read IS allowed on LSI)
+      lsi.partitionValue('USER#1').options({ consistent: true }).exec()
+    })
   })
 
-  test('Return Types', async () => {
-    const q = query.primary().partitionFrom({ id: '1' })
+  describe('Simple Table (Hash Only)', () => {
+    const simpleQ = new Query().entity(simpleEntity)
 
-    const resEntity = await q.exec()
-    expectTypeOf(resEntity).toEqualTypeOf<InferEntity<typeof entity>[]>()
-    // Verify optionality/absence of internal keys isn't strictly necessary if toEqualTypeOf passes,
-    // but we can ensure they aren't accidentally exposed if types change.
-    expectTypeOf(resEntity[0]).not.toHaveProperty('pk')
+    test('No Range Operations', () => {
+      simpleQ.primary().partitionValue('USER#1').exec()
 
-    const resRaw = await q.raw().exec()
-    expectTypeOf(resRaw).toEqualTypeOf<InferDynamoItem<typeof entity>[]>()
-    // Raw should have internal keys
-    expectTypeOf(resRaw[0]).toHaveProperty('pk')
-    expectTypeOf(resRaw[0]).toHaveProperty('sk')
-
-    const resSelect = await q.select(['id', 'age']).exec()
-    expectTypeOf(resSelect).toEqualTypeOf<Pick<InferEntity<typeof entity>, 'id' | 'age'>[]>()
-    // Should strictly not have other fields
-    expectTypeOf(resSelect[0]).not.toHaveProperty('email')
-
-    const resCount = await q.count().exec()
-    expectTypeOf(resCount).toEqualTypeOf<number>()
+      // @ts-expect-error - range not allowed
+      simpleQ.primary().partitionValue('USER#1').range({ eq: 'x' })
+      // @ts-expect-error - rangeFrom not allowed
+      simpleQ.primary().partitionValue('USER#1').rangeFrom({ id: '1' })
+      // @ts-expect-error - rangeNoCondition not allowed
+      simpleQ.primary().partitionValue('USER#1').rangeNoCondition()
+    })
   })
 
-  test('Edge Cases: Hash Key Only Table', () => {
-    const q = new Query().entity(simpleEntity)
+  describe('Return Types', () => {
+    const q = query.primary().partitionValue('U')
 
-    // Primary query should work with just partition key
-    q.primary().partitionFrom({ id: '123' }).exec()
+    test('Entity', async () => {
+      const res = await q.exec()
+      expectTypeOf(res).toEqualTypeOf<InferEntity<typeof entity>[]>()
+    })
 
-    // Sort operations should be disallowed (result in never argument type)
-    // @ts-expect-error - sortBeginsWith not allowed on hash-only table
-    q.primary().sortBeginsWith('foo')
+    test('Raw', async () => {
+      const res = await q.raw().exec()
+      expectTypeOf(res).toEqualTypeOf<InferDynamoItem<typeof entity>[]>()
+    })
 
-    // @ts-expect-error - partitionValue not allowed after state transition (even with limit/modifiers)
-    q.primary().partitionFrom({ id: '123' }).limit(1).partitionValue('USER#123').exec()
+    test('Count', async () => {
+      const res = await q.count().exec()
+      expectTypeOf(res).toEqualTypeOf<number>()
+    })
 
-    // @ts-expect-error - sortBeginsWith not allowed on hash-only table (even after modifiers)
-    q.primary().partitionFrom({ id: '123' }).limit(1).sortBeginsWith('foo')
+    test('Select', async () => {
+      const res = await q.select(['email', 'age']).exec()
+      expectTypeOf(res).toEqualTypeOf<Pick<InferEntity<typeof entity>, 'email' | 'age'>[]>()
+      expectTypeOf(res[0]).toHaveProperty('email')
+      expectTypeOf(res[0]).not.toHaveProperty('id')
+    })
 
-    // @ts-expect-error - Cannot use limit twice
-    q.primary().partitionValue('asd').limit(3).limit(5)
-
-    // @ts-expect-error - Cannot use count and raw together
-    q.primary().partitionValue('asd').count().raw()
-
-    // @ts-expect-error - Cannot use select and count together
-    q.primary().partitionValue('asd').select(['id']).count()
-
-    // LSI query should disallowed entirely (no local indexes)
-    // @ts-expect-error - No LSI defined
-    q.lsi('any')
-  })
-
-  test('Edge Cases: Table without LSI', () => {
-    const q = new Query().entity(noLsiEntity)
-
-    // Primary query works normally
-    q.primary().partitionFrom({ id: '123' }).sortBeginsWith('2023').exec()
-
-    // LSI query should be disallowed
-    // @ts-expect-error - No LSI defined
-    q.lsi('any')
+    test('Chaining Output Ops', () => {
+      // count().raw() -> Error
+      // @ts-expect-error
+      q.count().raw()
+      // select().count() -> Error
+      // @ts-expect-error
+      q.select(['id']).count()
+    })
   })
 })

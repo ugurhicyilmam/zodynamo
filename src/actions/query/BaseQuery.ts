@@ -5,8 +5,7 @@ import { QueryOutputMode, QueryState } from './types'
 export abstract class BaseQueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Output extends QueryOutputMode<E>,
-  State extends QueryState,
-  Modifiers extends string
+  State extends QueryState
 > {
   protected _entity: E
   protected _output: Output
@@ -18,20 +17,11 @@ export abstract class BaseQueryBuilder<
   }
 
   /**
-   * Limits the number of items returned.
+   * Sets the query options (limit, consistency, startKey, etc.).
    *
-   * @param limit - The maximum number of items.
+   * @param options - The query options.
    */
-  limit(limit: number): any {
-    return this
-  }
-
-  /**
-   * Sets the start key for pagination.
-   *
-   * @param key - The LastEvaluatedKey from a previous response.
-   */
-  startKey(key: Record<string, any>): any {
+  options(options: any): any {
     return this
   }
 

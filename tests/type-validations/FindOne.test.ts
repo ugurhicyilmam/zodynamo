@@ -65,7 +65,7 @@ describe('FindOne Type Validations', () => {
       const r = query.attributes(['email', 'metadata.version'])
       type Item = NonNullable<Awaited<ReturnType<typeof r.exec>>['item']>
 
-      expectTypeOf<Item>().toMatchTypeOf<{
+      expectTypeOf<Item>().toEqualTypeOf<{
         email: string
         metadata: { version: number }
       }>()
@@ -87,9 +87,7 @@ describe('FindOne Type Validations', () => {
 
     it('returns item | undefined by default', () => {
       type Item = Awaited<ReturnType<typeof query.exec>>['item']
-      expectTypeOf<Item>().toMatchTypeOf<
-        Prettify<InferEntity<typeof EntityPkString>> | undefined
-      >()
+      expectTypeOf<Item>().toEqualTypeOf<Prettify<InferEntity<typeof EntityPkString>> | undefined>()
     })
 
     it('returns non-nullable item with orThrow()', () => {

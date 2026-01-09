@@ -14,7 +14,9 @@ import {
 } from '../fixtures'
 import { AssertExactKeys } from './utils/AssetExactKeys'
 
-const dynamo = {} as DynamoDBDocumentClient
+const dynamo = {
+  send: () => Promise.resolve({ Items: [], Count: 0 })
+} as unknown as DynamoDBDocumentClient
 
 describe('Query DSL Type Validations', () => {
   describe('State Transitions', () => {

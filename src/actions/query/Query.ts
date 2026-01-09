@@ -1,4 +1,4 @@
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb'
 import type { Simplify } from 'type-fest'
 
 import { Entity } from '../../types/Entity'
@@ -7,6 +7,8 @@ import { FieldPath, PickByPaths } from '../../types/FieldPath'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
 import { Action } from '../Action'
+import { buildConditionExpression } from '../utils/conditions'
+import { buildProjectionExpression } from '../utils/projection'
 import {
   GsiQueryOptions,
   QueryHasSortKey,
@@ -151,31 +153,50 @@ export type QueryChain<
   >
 >
 
+export interface QueryStateObject<
+  E extends Entity<any, any, any, any, any, any, any, any, any>,
+  Index extends QueryIndexOrNull<E>,
+  Output extends QueryOutputMode<E>
+> {
+  index: Index
+  output: Output
+  partition?: {
+    from?: any
+    value?: any
+  }
+  range?: any
+  options?: any
+}
+
 export class QueryBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any>,
   Index extends QueryIndexOrNull<E> = null,
   Output extends QueryOutputMode<E> = 'entity',
   State extends QueryState = 'INITIAL'
 > {
-  protected _index?: QueryIndexSelector<E>
-  protected _entity: E
-  protected _output: Output
-  protected _state!: State
-
   constructor(
     protected readonly dynamo: DynamoDBDocumentClient,
-    entity: E
-  ) {
-    this._entity = entity
-    this._output = 'entity' as Output
+    protected readonly _entity: E,
+    protected readonly _state: QueryStateObject<E, Index, Output> = {
+      index: null as any,
+      output: 'entity' as any
+    } as any
+  ) {}
+
+  private next<NewIndex extends QueryIndexOrNull<E>, NewOutput extends QueryOutputMode<E>>(
+    stateUpdate: Partial<QueryStateObject<E, NewIndex, NewOutput>>
+  ): any {
+    return new QueryBuilder(this.dynamo, this._entity, {
+      ...this._state,
+      ...stateUpdate
+    } as any)
   }
 
   /**
    * Query the primary index.
    */
   primary(): PrimaryQuery<E, Output> {
-    this._index = { kind: 'primary' }
-    return this as any
+    return this.next({ index: { kind: 'primary' } })
   }
 
   /**
@@ -184,8 +205,7 @@ export class QueryBuilder<
    * @param indexName - The name of the GSI to query.
    */
   gsi<N extends GlobalIndexName<E['table']>>(indexName: N): GsiQuery<E, N, Output> {
-    this._index = { kind: 'gsi', name: indexName }
-    return this as any
+    return this.next({ index: { kind: 'gsi', name: indexName } })
   }
 
   /**
@@ -194,8 +214,7 @@ export class QueryBuilder<
    * @param indexName - The name of the LSI to query.
    */
   lsi<N extends LocalIndexName<E['table']>>(indexName: N): LsiQuery<E, N, Output> {
-    this._index = { kind: 'lsi', name: indexName }
-    return this as any
+    return this.next({ index: { kind: 'lsi', name: indexName } })
   }
 
   /* Partition Key Operations */
@@ -214,7 +233,7 @@ export class QueryBuilder<
   partitionFrom(
     domain: QueryPartitionFromInput<E, Extract<Index, QueryIndexSelector<E>>>
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'PARTITION_SET'> {
-    return this as any
+    return this.next({ partition: { from: domain } })
   }
 
   /**
@@ -230,7 +249,7 @@ export class QueryBuilder<
   partitionValue(
     value: QueryKeyTypes<E, Extract<Index, QueryIndexSelector<E>>>['pk']
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'PARTITION_SET'> {
-    return this as any
+    return this.next({ partition: { value } })
   }
 
   /* Sort Key Operations */
@@ -256,7 +275,7 @@ export class QueryBuilder<
         : never
     >
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'SORT_SET'> {
-    return this as any
+    return this.next({ range: options })
   }
 
   /**
@@ -272,7 +291,7 @@ export class QueryBuilder<
   rangeFrom(
     args: QueryRangeFromInput<E, Extract<Index, QueryIndexSelector<E>>>
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'SORT_SET'> {
-    return this as any
+    return this.next({ range: { from: args } })
   }
 
   /**
@@ -284,7 +303,7 @@ export class QueryBuilder<
    * ```
    */
   rangeNoCondition(): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'SORT_SET'> {
-    return this as any
+    return this.next({ range: { noCondition: true } })
   }
 
   /* Modifiers */
@@ -310,7 +329,7 @@ export class QueryBuilder<
         : QueryOptions<E, Extract<Index, QueryIndexSelector<E>>>
     >
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'OPTIONS_SET'> {
-    return this as any
+    return this.next({ options })
   }
 
   /**
@@ -322,7 +341,7 @@ export class QueryBuilder<
    * ```
    */
   raw(): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, 'raw', 'OPTIONS_SET'> {
-    return this as any
+    return this.next({ output: 'raw' })
   }
 
   /**
@@ -338,7 +357,7 @@ export class QueryBuilder<
   select<K extends FieldPath<InferEntity<E>>>(
     fields: readonly K[]
   ): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, { select: readonly K[] }, 'OPTIONS_SET'> {
-    return this as any
+    return this.next({ output: { select: fields } })
   }
 
   /**
@@ -350,7 +369,7 @@ export class QueryBuilder<
    * ```
    */
   count(): QueryChain<E, Extract<Index, QueryIndexSelector<E>>, 'count', 'OPTIONS_SET'> {
-    return this as any
+    return this.next({ output: 'count' })
   }
 
   /**
@@ -363,7 +382,7 @@ export class QueryBuilder<
    * const users = await query.entity(User).primary().partitionValue('USER#1').exec()
    * ```
    */
-  exec(
+  async exec(
     this:
       | QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'PARTITION_SET'>
       | QueryChain<E, Extract<Index, QueryIndexSelector<E>>, Output, 'SORT_SET'>
@@ -381,6 +400,150 @@ export class QueryBuilder<
             ? number
             : never
   > {
-    return Promise.resolve([] as any) as any
+    const self = this as any
+    const tableIndex = self.getTableIndex()
+    const entityIndex = self.getEntityIndex()
+
+    const ExpressionAttributeNames: Record<string, string> = {}
+    const ExpressionAttributeValues: Record<string, any> = {}
+
+    // 1. Partition Key
+    const pkField = tableIndex.hashKey
+    const pkValue = self._state.partition?.from
+      ? entityIndex.hashKey.calculate(self._state.partition.from)
+      : self._state.partition?.value
+
+    ExpressionAttributeNames['#pk'] = pkField
+    ExpressionAttributeValues[':pk'] = pkValue
+    let keyCondition = '#pk = :pk'
+
+    // 2. Sort Key
+    if (self._state.range && !self._state.range.noCondition) {
+      const skField = tableIndex.rangeKey
+      if (skField) {
+        let skCondition = self._state.range
+        if (self._state.range.from) {
+          const skValue = (entityIndex as any).rangeKey.calculate(self._state.range.from)
+          skCondition = { eq: skValue }
+        }
+
+        ExpressionAttributeNames['#sk'] = skField
+        const { expression, values } = self.buildRangeExpression(skCondition)
+        keyCondition = `(${keyCondition}) AND (${expression})`
+        Object.assign(ExpressionAttributeValues, values)
+      }
+    }
+
+    const input: any = {
+      TableName: self._state.options?.tableName || (self._entity.table as any).name,
+      KeyConditionExpression: keyCondition,
+      ExpressionAttributeNames,
+      ExpressionAttributeValues
+    }
+
+    if (self._state.index?.kind !== 'primary') {
+      input.IndexName = (self._state.index as any).name
+    }
+
+    // 3. Filters
+    if (self._state.options?.filter) {
+      const {
+        ConditionExpression,
+        ExpressionAttributeNames: filterNames,
+        ExpressionAttributeValues: filterValues
+      } = buildConditionExpression(self._state.options.filter)
+
+      input.FilterExpression = ConditionExpression
+      Object.assign(input.ExpressionAttributeNames, filterNames)
+      Object.assign(input.ExpressionAttributeValues, filterValues)
+    }
+
+    // 4. Projections
+    if (
+      self._state.output &&
+      typeof self._state.output === 'object' &&
+      'select' in self._state.output
+    ) {
+      const { ProjectionExpression, ExpressionAttributeNames: projNames } =
+        buildProjectionExpression(self._state.output.select as string[])
+
+      input.ProjectionExpression = ProjectionExpression
+      Object.assign(input.ExpressionAttributeNames, projNames)
+    }
+
+    // 5. Options
+    if (self._state.options?.limit) input.Limit = self._state.options.limit
+    if (self._state.options?.order === 'desc') input.ScanIndexForward = false
+    if (self._state.options?.startKey) input.ExclusiveStartKey = self._state.options.startKey
+    if (self._state.options?.consistent) input.ConsistentRead = true
+    if (self._state.output === 'count') input.Select = 'COUNT'
+
+    const response = await self.dynamo.send(new QueryCommand(input))
+
+    if (self._state.output === 'count') {
+      return (response.Count ?? 0) as any
+    }
+
+    const items = response.Items || []
+    if (self._state.output === 'raw') {
+      return items as any
+    }
+
+    // Decode and validate
+    const decoded = items.map((item: any) => {
+      let data = item
+      if (self._entity.transform) {
+        data = self._entity.transform.decode(data)
+      }
+
+      if (
+        self._state.output &&
+        typeof self._state.output === 'object' &&
+        'select' in self._state.output
+      ) {
+        // Partial validation
+        return self._entity.schema.deepPartial().parse(data)
+      }
+
+      return self._entity.schema.parse(data)
+    })
+
+    return decoded as any
+  }
+
+  private getTableIndex(): any {
+    const index = this._state.index
+    if (!index || index.kind === 'primary') return this._entity.table.primaryIndex
+    if (index.kind === 'gsi') return (this._entity.table.globalIndexes as any)[index.name]
+    if (index.kind === 'lsi') return (this._entity.table.localIndexes as any)[index.name]
+  }
+
+  private getEntityIndex(): any {
+    const index = this._state.index
+    if (!index || index.kind === 'primary') return this._entity.key
+    if (index.kind === 'gsi') return (this._entity.globalIndexes as any)[index.name]
+    if (index.kind === 'lsi') return (this._entity.localIndexes as any)[index.name]
+  }
+
+  private buildRangeExpression(options: RangeOptions<any>): {
+    expression: string
+    values: Record<string, any>
+  } {
+    if ('eq' in options) return { expression: '#sk = :sk', values: { ':sk': options.eq } }
+    if ('gt' in options) return { expression: '#sk > :sk', values: { ':sk': options.gt } }
+    if ('gte' in options) return { expression: '#sk >= :sk', values: { ':sk': options.gte } }
+    if ('lt' in options) return { expression: '#sk < :sk', values: { ':sk': options.lt } }
+    if ('lte' in options) return { expression: '#sk <= :sk', values: { ':sk': options.lte } }
+    if ('between' in options) {
+      const between = (options as any).between as [any, any]
+      return {
+        expression: '#sk BETWEEN :sk_low AND :sk_high',
+        values: { ':sk_low': between[0], ':sk_high': between[1] }
+      }
+    }
+    if ('beginsWith' in options) {
+      return { expression: 'begins_with(#sk, :sk)', values: { ':sk': options.beginsWith } }
+    }
+    throw new Error('Invalid range options')
   }
 }

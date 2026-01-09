@@ -6,7 +6,9 @@ import { InferEntity } from '../../src/types/InferEntity'
 import { Prettify } from '../../src/types/utils'
 import { EntityCompositeAllFeatures, EntityPkString, EntityWithNestedData } from '../fixtures'
 
-const dynamo = {} as DynamoDBDocumentClient
+const dynamo = {
+  send: () => Promise.resolve({ Item: undefined })
+} as unknown as DynamoDBDocumentClient
 
 describe('FindOne Type Validations', () => {
   describe('Key Validation', () => {
@@ -59,21 +61,18 @@ describe('FindOne Type Validations', () => {
       .entity(EntityWithNestedData)
       .key({ id: '1', email: 'test@example.com' })
 
-    it('restricts result type based on attributes', async () => {
-      const result = await query.attributes(['email', 'metadata.version']).exec()
+    it('restricts result type based on attributes', () => {
+      const r = query.attributes(['email', 'metadata.version'])
+      type Item = NonNullable<Awaited<ReturnType<typeof r.exec>>['item']>
 
-      expectTypeOf(result.item).toMatchTypeOf<
-        | Prettify<{
-            email: string
-            metadata: {
-              version: number
-            }
-          }>
-        | undefined
-      >()
+      expectTypeOf<Item>().toMatchTypeOf<{
+        email: string
+        metadata: { version: number }
+      }>()
 
-      // @ts-expect-error - property not selected
-      result.item?.id
+      // Verify other fields are NOT present
+      // @ts-expect-error - id not selected
+      type Id = Item['id']
     })
 
     it('validates attribute paths', () => {
@@ -86,22 +85,25 @@ describe('FindOne Type Validations', () => {
   describe('Return Types and Modifiers', () => {
     const query = new FindOne(dynamo).entity(EntityPkString).key({ id: '1' })
 
-    it('returns item | undefined by default', async () => {
-      const result = await query.exec()
-      expectTypeOf(result.item).toMatchTypeOf<
+    it('returns item | undefined by default', () => {
+      type Item = Awaited<ReturnType<typeof query.exec>>['item']
+      expectTypeOf<Item>().toMatchTypeOf<
         Prettify<InferEntity<typeof EntityPkString>> | undefined
       >()
     })
 
-    it('returns non-nullable item with orThrow()', async () => {
-      const result = await query.orThrow().exec()
-      expectTypeOf(result.item).toMatchTypeOf<Prettify<InferEntity<typeof EntityPkString>>>()
-      expectTypeOf(result.item).not.toBeUndefined()
+    it('returns non-nullable item with orThrow()', () => {
+      const r = query.orThrow()
+      type Item = Awaited<ReturnType<typeof r.exec>>['item']
+      expectTypeOf<Item>().toEqualTypeOf<Prettify<InferEntity<typeof EntityPkString>>>()
+      expectTypeOf<Item>().not.toBeNullable()
     })
 
-    it('combines projection and orThrow', async () => {
-      const result = await query.attributes(['id']).orThrow().exec()
-      expectTypeOf(result.item).toMatchTypeOf<{ id: string }>()
+    it('combines projection and orThrow', () => {
+      const r = query.attributes(['id']).orThrow()
+      type Item = Awaited<ReturnType<typeof r.exec>>['item']
+      expectTypeOf<Item>().toEqualTypeOf<{ id: string }>()
+      expectTypeOf<Item>().not.toBeNullable()
     })
   })
 })

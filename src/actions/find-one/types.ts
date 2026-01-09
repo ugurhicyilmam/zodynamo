@@ -1,3 +1,5 @@
+import { GetCommandOutput } from '@aws-sdk/lib-dynamodb'
+
 import { Entity } from '../../types/Entity'
 import { PickByPaths } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
@@ -24,21 +26,19 @@ export type FindOneStateObject = {
   orThrow?: boolean
 }
 
-export type FindOneOutput<E extends AnyEntity, State extends FindOneStateObject> = State extends {
-  orThrow: true
-}
-  ? {
-      item: State extends { attributes: readonly (infer K extends string)[] }
+export type FindOneResponse<E extends AnyEntity, State extends FindOneStateObject> = Prettify<
+  Omit<GetCommandOutput, 'Item'> & {
+    item: State extends { orThrow: true }
+      ? State extends { attributes: readonly (infer K extends string)[] }
         ? PickByPaths<InferEntity<E>, K>
         : InferEntity<E>
-    }
-  : {
-      item:
-        | (State extends { attributes: readonly (infer K extends string)[] }
-            ? PickByPaths<InferEntity<E>, K>
-            : InferEntity<E>)
-        | undefined
-    }
+      :
+          | (State extends { attributes: readonly (infer K extends string)[] }
+              ? PickByPaths<InferEntity<E>, K>
+              : InferEntity<E>)
+          | undefined
+  }
+>
 
 export type FindOneModifiers = 'options' | 'attributes' | 'orThrow' | 'exec'
 

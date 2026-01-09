@@ -1,13 +1,15 @@
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb'
 
+import { ItemNotFoundError } from '../../errors/ItemNotFoundError'
 import { FieldPath } from '../../types/FieldPath'
 import { InferEntity } from '../../types/InferEntity'
 import { Action } from '../Action'
+import { buildProjectionExpression } from '../utils/projection'
 import {
   AnyEntity,
   FindOneKey,
   FindOneOptions,
-  FindOneOutput,
+  FindOneResponse,
   FindOneStateObject,
   ResolveFindOneChain
 } from './types'
@@ -36,7 +38,7 @@ export class FindOneBuilder<
   constructor(
     private dynamo: DynamoDBDocumentClient,
     private entity: E,
-    private state: State = { status: 'INITIAL' } as any
+    private state: State = { status: 'INITIAL' } as State
   ) {}
 
   /**
@@ -100,16 +102,61 @@ export class FindOneBuilder<
    *
    * @returns Promise resolving to the found item or undefined (or throwing if orThrow() was called)
    */
-  async exec(): Promise<FindOneOutput<E, State>> {
-    const commandInput = {
-      TableName: this.state.options?.tableName || (this.entity as any).table.name,
-      Key: this.state.key!,
-      ConsistentRead: this.state.options?.consistent,
-      ProjectionExpression: this.state.attributes?.join(', '),
-      ReturnConsumedCapacity: this.state.options?.capacity
+  async exec(): Promise<FindOneResponse<E, State>> {
+    const hashKeyName = (this.entity as any).table.primaryIndex.hashKey
+    const hashKeyValue = (this.entity as any).key.hashKey.calculate(this.state.key)
+
+    const Key: Record<string, any> = {
+      [hashKeyName]: hashKeyValue
     }
 
-    // TODO: Implement actual DynamoDB call using this.dynamo.send()
-    return {} as any
+    if ((this.entity as any).table.primaryIndex.rangeKey) {
+      const rangeKeyName = (this.entity as any).table.primaryIndex.rangeKey
+      const rangeKeyValue = (this.entity as any).key.rangeKey.calculate(this.state.key)
+      Key[rangeKeyName] = rangeKeyValue
+    }
+
+    const input: any = {
+      TableName: this.state.options?.tableName || (this.entity as any).table.name,
+      Key
+    }
+
+    if (this.state.options?.consistent !== undefined) {
+      input.ConsistentRead = this.state.options.consistent
+    }
+
+    if (this.state.options?.capacity !== undefined) {
+      input.ReturnConsumedCapacity = this.state.options.capacity
+    }
+
+    if (this.state.attributes && this.state.attributes.length > 0) {
+      const { ProjectionExpression, ExpressionAttributeNames } = buildProjectionExpression(
+        this.state.attributes
+      )
+      input.ProjectionExpression = ProjectionExpression
+      input.ExpressionAttributeNames = ExpressionAttributeNames
+    }
+
+    const response = await this.dynamo.send(new GetCommand(input))
+    const { Item, ...rest } = response
+
+    if (!Item) {
+      if (this.state.orThrow) {
+        throw new ItemNotFoundError((this.entity as any).name, Key)
+      }
+      return { item: undefined, ...rest } as any
+    }
+
+    let item = Item
+    if (this.entity.transform) {
+      item = (this.entity.transform as any).decode(item)
+    }
+
+    const validationSchema =
+      this.state.attributes && this.state.attributes.length > 0
+        ? (this.entity.schema as any).deepPartial()
+        : this.entity.schema
+
+    return { item: validationSchema.parse(item), ...rest } as any
   }
 }

@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { describe, expectTypeOf, it } from 'vitest'
 
 import { Query } from '../../src/actions/query/Query'
@@ -13,14 +14,16 @@ import {
 } from '../fixtures'
 import { AssertExactKeys } from './utils/AssetExactKeys'
 
+const dynamo = {} as DynamoDBDocumentClient
+
 describe('Query DSL Type Validations', () => {
   describe('State Transitions', () => {
     describe('Initial State', () => {
       it('exposes correct index methods based on entity configuration', () => {
-        const withAllIndexes = new Query().entity(EntityCompositeAllFeatures)
-        const pkOnly = new Query().entity(EntityPkString)
-        const withGsi = new Query().entity(EntityCompositeGsiString)
-        const withLsi = new Query().entity(EntityCompositeLsiNumber)
+        const withAllIndexes = new Query(dynamo).entity(EntityCompositeAllFeatures)
+        const pkOnly = new Query(dynamo).entity(EntityPkString)
+        const withGsi = new Query(dynamo).entity(EntityCompositeGsiString)
+        const withLsi = new Query(dynamo).entity(EntityCompositeLsiNumber)
 
         expectTypeOf<
           AssertExactKeys<typeof withAllIndexes, 'primary' | 'lsi' | 'gsi'>
@@ -33,10 +36,10 @@ describe('Query DSL Type Validations', () => {
 
     describe('Partition State', () => {
       it('exposes only partition key setters after selecting an index', () => {
-        const primary = new Query().entity(EntityCompositeAllFeatures).primary()
-        const gsi = new Query().entity(EntityCompositeGsiString).gsi('GSI')
-        const lsi = new Query().entity(EntityCompositeLsiNumber).lsi('LSI')
-        const pkOnly = new Query().entity(EntityPkString).primary()
+        const primary = new Query(dynamo).entity(EntityCompositeAllFeatures).primary()
+        const gsi = new Query(dynamo).entity(EntityCompositeGsiString).gsi('GSI')
+        const lsi = new Query(dynamo).entity(EntityCompositeLsiNumber).lsi('LSI')
+        const pkOnly = new Query(dynamo).entity(EntityPkString).primary()
 
         expectTypeOf<
           AssertExactKeys<typeof primary, 'partitionFrom' | 'partitionValue'>
@@ -55,15 +58,15 @@ describe('Query DSL Type Validations', () => {
 
     describe('Range State', () => {
       it('exposes range operations for entities with sort keys', () => {
-        const primaryWithSk = new Query()
+        const primaryWithSk = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
-        const gsiWithSk = new Query()
+        const gsiWithSk = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .gsi('GSI1')
           .partitionValue('STATUS#1')
-        const lsiWithSk = new Query()
+        const lsiWithSk = new Query(dynamo)
           .entity(EntityCompositeLsiNumber)
           .lsi('LSI')
           .partitionValue('USER#1')
@@ -80,8 +83,8 @@ describe('Query DSL Type Validations', () => {
       })
 
       it('skips range operations for hash-only indexes', () => {
-        const pkOnly = new Query().entity(EntityPkString).primary().partitionValue('USER#1')
-        const gsiHashOnly = new Query()
+        const pkOnly = new Query(dynamo).entity(EntityPkString).primary().partitionValue('USER#1')
+        const gsiHashOnly = new Query(dynamo)
           .entity(EntityCompositeGsiString)
           .gsi('GSI')
           .partitionValue('STATUS#1')
@@ -97,7 +100,7 @@ describe('Query DSL Type Validations', () => {
 
     describe('Options State', () => {
       it('exposes output methods after setting options', () => {
-        const afterOptions = new Query()
+        const afterOptions = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
@@ -110,7 +113,7 @@ describe('Query DSL Type Validations', () => {
       })
 
       it('allows exec directly after options', () => {
-        const query = new Query()
+        const query = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
@@ -123,21 +126,21 @@ describe('Query DSL Type Validations', () => {
 
     describe('Output State', () => {
       it('exposes only exec after selecting an output format', () => {
-        const withRaw = new Query()
+        const withRaw = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
           .rangeNoCondition()
           .raw()
 
-        const withSelect = new Query()
+        const withSelect = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
           .rangeNoCondition()
           .select(['email'])
 
-        const withCount = new Query()
+        const withCount = new Query(dynamo)
           .entity(EntityCompositeAllFeatures)
           .primary()
           .partitionValue('USER#1')
@@ -154,14 +157,14 @@ describe('Query DSL Type Validations', () => {
   describe('Primary Index Queries', () => {
     describe('Partition Key', () => {
       it('accepts valid partition key values and transformations', () => {
-        const query = new Query().entity(EntityCompositeAllFeatures).primary()
+        const query = new Query(dynamo).entity(EntityCompositeAllFeatures).primary()
 
         query.partitionValue('USER#123').rangeNoCondition().exec()
         query.partitionFrom({ id: '123T' }).rangeNoCondition().exec()
       })
 
       it('rejects invalid partition key types', () => {
-        const query = new Query().entity(EntityCompositeAllFeatures).primary()
+        const query = new Query(dynamo).entity(EntityCompositeAllFeatures).primary()
 
         // @ts-expect-error - Invalid type
         query.partitionValue(123)
@@ -173,7 +176,7 @@ describe('Query DSL Type Validations', () => {
     })
 
     describe('Range Conditions - String Sort Key', () => {
-      const query = new Query()
+      const query = new Query(dynamo)
         .entity(EntityCompositeAllFeatures)
         .primary()
         .partitionValue('USER#1')
@@ -226,7 +229,10 @@ describe('Query DSL Type Validations', () => {
     })
 
     describe('Range Conditions - Number Sort Key', () => {
-      const query = new Query().entity(EntityCompositeSkNumber).primary().partitionValue('USER#1')
+      const query = new Query(dynamo)
+        .entity(EntityCompositeSkNumber)
+        .primary()
+        .partitionValue('USER#1')
 
       it('supports comparison operators with numbers', () => {
         query.range({ gt: 100 }).exec()
@@ -240,7 +246,7 @@ describe('Query DSL Type Validations', () => {
     })
 
     describe('State Transition Rules', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures).primary()
+      const query = new Query(dynamo).entity(EntityCompositeAllFeatures).primary()
 
       it('enforces correct method call order', () => {
         // Valid: partition -> range -> options
@@ -306,7 +312,7 @@ describe('Query DSL Type Validations', () => {
 
   describe('GSI Queries', () => {
     describe('GSI with Composite Key', () => {
-      const query = new Query().entity(EntityCompositeAllFeatures).gsi('GSI1')
+      const query = new Query(dynamo).entity(EntityCompositeAllFeatures).gsi('GSI1')
 
       it('validates partition key', () => {
         query.partitionFrom({ status: 'ACTIVE' }).rangeNoCondition().exec()
@@ -373,7 +379,7 @@ describe('Query DSL Type Validations', () => {
     })
 
     describe('GSI with Hash Key Only', () => {
-      const query = new Query().entity(EntityCompositeGsiString).gsi('GSI')
+      const query = new Query(dynamo).entity(EntityCompositeGsiString).gsi('GSI')
 
       it('validates partition key', () => {
         query.partitionValue('value').exec()
@@ -405,7 +411,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('LSI Queries', () => {
-    const query = new Query().entity(EntityCompositeAllFeatures).lsi('LSI1')
+    const query = new Query(dynamo).entity(EntityCompositeAllFeatures).lsi('LSI1')
 
     it('validates partition key and range operations', () => {
       query.partitionValue('USER#1').range({ eq: 20 }).exec()
@@ -438,7 +444,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Hash-Only Primary Index', () => {
-    const query = new Query().entity(EntityPkString).primary()
+    const query = new Query(dynamo).entity(EntityPkString).primary()
 
     it('does not expose range operations', () => {
       query.partitionValue('USER#1').exec()
@@ -458,7 +464,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Return Types', () => {
-    const query = new Query()
+    const query = new Query(dynamo)
       .entity(EntityCompositeAllFeatures)
       .primary()
       .partitionValue('U')
@@ -500,7 +506,7 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Field Path Selection', () => {
-    const query = new Query()
+    const query = new Query(dynamo)
       .entity(EntityWithNestedData)
       .primary()
       .partitionValue('USER#1')
@@ -553,13 +559,13 @@ describe('Query DSL Type Validations', () => {
   })
 
   describe('Filter Conditions', () => {
-    const baseQuery = new Query()
+    const baseQuery = new Query(dynamo)
       .entity(EntityWithNestedData)
       .primary()
       .partitionValue('USER#1')
       .rangeNoCondition()
 
-    new Query().entity(EntityWithNestedData).gsi
+    new Query(dynamo).entity(EntityWithNestedData).gsi
 
     describe('Basic Operators', () => {
       it('supports comparison operators', () => {

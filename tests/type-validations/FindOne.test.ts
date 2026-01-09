@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { describe, expectTypeOf, it } from 'vitest'
 
 import { FindOne } from '../../src/actions/find-one/FindOne'
@@ -5,35 +6,39 @@ import { InferEntity } from '../../src/types/InferEntity'
 import { Prettify } from '../../src/types/utils'
 import { EntityCompositeAllFeatures, EntityPkString, EntityWithNestedData } from '../fixtures'
 
+const dynamo = {} as DynamoDBDocumentClient
+
 describe('FindOne Type Validations', () => {
   describe('Key Validation', () => {
     it('requires exact primary key for entity with PK only', () => {
       // Valid
-      new FindOne(EntityPkString).key({ id: '1' })
+      new FindOne(dynamo).entity(EntityPkString).key({ id: '1' })
 
       // @ts-expect-error - Missing PK
-      new FindOne(EntityPkString).key({})
+      new FindOne(dynamo).entity(EntityPkString).key({})
       // @ts-expect-error - Extra properties
-      new FindOne(EntityPkString).key({ id: '1', extra: 'val' })
+      new FindOne(dynamo).entity(EntityPkString).key({ id: '1', extra: 'val' })
       // @ts-expect-error - Invalid type
-      new FindOne(EntityPkString).key({ id: 123 })
+      new FindOne(dynamo).entity(EntityPkString).key({ id: 123 })
     })
 
     it('requires exact primary key for entity with PK and SK', () => {
       // Valid
-      new FindOne(EntityCompositeAllFeatures).key({ id: '1', email: 'test@example.com' })
+      new FindOne(dynamo)
+        .entity(EntityCompositeAllFeatures)
+        .key({ id: '1', email: 'test@example.com' })
 
       // @ts-expect-error - Missing SK
-      new FindOne(EntityCompositeAllFeatures).key({ id: '1' })
+      new FindOne(dynamo).entity(EntityCompositeAllFeatures).key({ id: '1' })
       // @ts-expect-error - Missing PK
-      new FindOne(EntityCompositeAllFeatures).key({ email: 'test@example.com' })
+      new FindOne(dynamo).entity(EntityCompositeAllFeatures).key({ email: 'test@example.com' })
       // @ts-expect-error - Invalid types
-      new FindOne(EntityCompositeAllFeatures).key({ id: 1, email: 2 })
+      new FindOne(dynamo).entity(EntityCompositeAllFeatures).key({ id: 1, email: 2 })
     })
   })
 
   describe('Options', () => {
-    const query = new FindOne(EntityCompositeAllFeatures).key({
+    const query = new FindOne(dynamo).entity(EntityCompositeAllFeatures).key({
       id: '1',
       email: 'test@example.com'
     })
@@ -50,7 +55,9 @@ describe('FindOne Type Validations', () => {
   })
 
   describe('Attributes Projection', () => {
-    const query = new FindOne(EntityWithNestedData).key({ id: '1', email: 'test@example.com' })
+    const query = new FindOne(dynamo)
+      .entity(EntityWithNestedData)
+      .key({ id: '1', email: 'test@example.com' })
 
     it('restricts result type based on attributes', async () => {
       const result = await query.attributes(['email', 'metadata.version']).exec()
@@ -77,7 +84,7 @@ describe('FindOne Type Validations', () => {
   })
 
   describe('Return Types and Modifiers', () => {
-    const query = new FindOne(EntityPkString).key({ id: '1' })
+    const query = new FindOne(dynamo).entity(EntityPkString).key({ id: '1' })
 
     it('returns item | undefined by default', async () => {
       const result = await query.exec()

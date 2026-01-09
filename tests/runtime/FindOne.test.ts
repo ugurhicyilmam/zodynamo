@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
+import { describe, expect, it, vi } from 'vitest'
 
 import { FindOne } from '../../src/actions/find-one/FindOne'
 import { EntityCompositeAllFeatures } from '../fixtures'
 
+const mockDynamoClient = {
+  send: vi.fn()
+} as unknown as DynamoDBDocumentClient
+
 describe('FindOne Runtime', () => {
   it('initializes with key', () => {
-    const query = new FindOne(EntityCompositeAllFeatures).key({
+    const query = new FindOne(mockDynamoClient).entity(EntityCompositeAllFeatures).key({
       id: '1',
       email: 'test@example.com'
     })
@@ -13,7 +18,7 @@ describe('FindOne Runtime', () => {
   })
 
   it('updates state immutably', () => {
-    const q1 = new FindOne(EntityCompositeAllFeatures).key({
+    const q1 = new FindOne(mockDynamoClient).entity(EntityCompositeAllFeatures).key({
       id: '1',
       email: 'test@example.com'
     })
@@ -28,7 +33,7 @@ describe('FindOne Runtime', () => {
 
   // Since actual execution is mocked/not connected to DB, we mainly verify it doesn't crash
   it('executes without error', async () => {
-    const query = new FindOne(EntityCompositeAllFeatures).key({
+    const query = new FindOne(mockDynamoClient).entity(EntityCompositeAllFeatures).key({
       id: '1',
       email: 'test@example.com'
     })

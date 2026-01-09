@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import type { Simplify } from 'type-fest'
 
 import { Entity } from '../../types/Entity'
@@ -5,6 +6,7 @@ import { GlobalIndexName, LocalIndexName } from '../../types/EntityKey'
 import { FieldPath, PickByPaths } from '../../types/FieldPath'
 import { InferDynamoItem } from '../../types/InferDynamoItem'
 import { InferEntity } from '../../types/InferEntity'
+import { Action } from '../Action'
 import {
   GsiQueryOptions,
   QueryHasSortKey,
@@ -62,7 +64,7 @@ export type LsiQuery<
  *   .exec()
  * ```
  */
-export class Query {
+export class Query extends Action {
   /**
    * Select an entity to query against.
    *
@@ -71,14 +73,14 @@ export class Query {
    *
    * @example
    * ```ts
-   * new Query().entity(UserEntity).primary()
-   * new Query().entity(UserEntity).gsi('ByEmail')
+   * new Query(dynamo).entity(UserEntity).primary()
+   * new Query(dynamo).entity(UserEntity).gsi('ByEmail')
    * ```
    */
   entity<E extends Entity<any, any, any, any, any, any, any, any, any>>(
     entity: E
   ): QuerySelector<E> {
-    return new QueryBuilder(entity) as any
+    return new QueryBuilder(this.dynamo, entity) as any
   }
 }
 
@@ -160,7 +162,10 @@ export class QueryBuilder<
   protected _output: Output
   protected _state!: State
 
-  constructor(entity: E) {
+  constructor(
+    protected readonly dynamo: DynamoDBDocumentClient,
+    entity: E
+  ) {
     this._entity = entity
     this._output = 'entity' as Output
   }

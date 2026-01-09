@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
@@ -31,9 +32,11 @@ const entity = defineEntity(table, {
   }
 })
 
+const dynamo = {} as DynamoDBDocumentClient
+
 test('Put Action Type Checks', () => {
   // 1. Initial State
-  const put = new Put(entity)
+  const put = new Put(dynamo).entity(entity)
   expectTypeOf(put.item).toBeCallableWith({ id: '1', name: 'test' })
   expectTypeOf(put.item).toBeCallableWith({ id: '1', name: 'test', age: 25 })
   // @ts-expect-error - missing required field
@@ -99,7 +102,7 @@ test('Put Action with Transform', () => {
     }
   })
 
-  const put = new Put(entity)
+  const put = new Put(dynamo).entity(entity)
 
   // Should accept External Input
   expectTypeOf(put.item).toBeCallableWith({ id: '1', count: 10 })

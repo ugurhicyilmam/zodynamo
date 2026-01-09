@@ -17,46 +17,19 @@ Agents working on this system should assume the following core principles:
 
 Zodynamo supports both **single-table** and **multi-table** designs and must maintain strict type safety across all supported access patterns.
 
-## Non-Goals
-
-Agents must not introduce or assume:
-
-- Table creation, deployment, or lifecycle management
-- DynamoDB infrastructure abstractions (CDK, Terraform, etc.)
-- Runtime schema mutation or dynamic typing
-
 ## Build and Test Commands
-
-### Setup
-
-```bash
-# Install dependencies
-pnpm install
-
-# Run tests
-pnpm test
-
-# Run typecheck
-pnpm typecheck
-```
 
 ### Development Workflow
 
-```bash
-# Format code
-pnpm format
-
-# Typecheck
-pnpm typecheck
-
-# Run tests
-pnpm test
-```
+- Always run `pnpm typecheck` after any change, make sure it passes
+- Always run `pnpm test` after any change, make sure it passes
+- Always run `pnpm format` after any change, make sure it succeeds
+- Always add tests for new features unless user explicitly requests otherwise.
+- Always add type tests for new features unless user explicitly requests otherwise.
 
 ## Code Style Guidelines
 
 - **TypeScript**: Strict mode enabled. Use `pnpm typecheck` to verify.
-- **Testing**: Use `vitest` with extensive unit test coverage.
 - **Mocking**: External modules are mocked using `vitest.fn()`
 - **Formatting**: Use `pnpm format` to format code.
 
@@ -64,8 +37,8 @@ pnpm test
 
 ### Test Types
 
-- **Unit Tests** (`*.test.ts`): Use `vitest` with extensive unit test coverage. Tests should focus on type safety and functionality. Tests are located in the `tests` directory.
-- **Type Tests** (`*.test.ts`): TypeScript type checking tests. These tests are located in the `tests/type-validations` directory. Use `pnpm typecheck` to run type tests. Extensive type tests are required to ensure type safety.
+- **Unit Tests** (`*.test.ts`): Located in the `tests/runtime` directory. These tests focus on runtime behavior and functionality. Use `pnpm test` to run unit tests.
+- **Type Tests** (`*.test.ts`): Located in the `tests/type-validations` directory. These tests focus on type safety and functionality. Use `pnpm typecheck` to run type tests.
 
 ### Key Testing Principles
 
@@ -74,48 +47,116 @@ pnpm test
 3. **Fixture classes**: Create reusable test fixtures with static methods
 4. **Clear naming**: Use descriptive test names with "when called, and [condition]" pattern
 
-### Running Tests
+### Agent Behavior Specification
 
-```bash
-# Run all tests
-pnpm test
+> This document defines mandatory behavioral and technical standards.
+> Compliance is assumed by default unless the user explicitly waives specific rules.
+> These rules apply to both reasoning and output quality.
 
-# Run typechecks
-pnpm typecheck
-```
+#### General Principles
 
-### Repository Structure
+- Before producing any output, fully understand:
+  - Project context
+  - User intent
+  - The applicable technical stack
+- When conclusions depend on external or uncertain information:
+  - Consult at least one authoritative source (official documentation, standards, or source code)
+  - Cite the source using links or version identifiers
+- If requirements are ambiguous:
+  - Restate known facts in one sentence
+  - List clarification questions
+  - Continue only after confirmation
+- For complex tasks:
+  - Decompose into explicit subtasks
+  - Present results in subtask order
 
-```bash
-.changeset/             # Changesets release metadata
-.github/workflows/      # CI workflows
+All technical output must be deliberate, accurate, and reasoned. Mechanical or filler content is strictly prohibited.
 
-dist/                   # Built outputs
-src/
-├── actions/            # DynamoDB action wrappers
-├── functions/          # Core public functions
-├── types/              # Type definitions
-└── index.ts            # Public exports
+#### Scope Guard
 
-tests/                  # Unit tests
-├── fixtures/           # Unit test fixtures
-└── type-validations/   # Type-level tests (tsc)
-```
+##### 1. Implementing New Features, Types, or Public APIs
 
-### Workspace Configuration
+- Always review existing implementations before writing new code:
+  - Types
+  - Public exports
+  - Utility patterns
+- Follow established project conventions for:
+  - Type definitions
+  - Generic constraints
+  - File and export structure
 
-- **pnpm**: Use `pnpm` as the package manager
-- **changesets**: Use `changesets` for versioning and release management
-- **vitest**: Use `vitest` for unit testing
-- **tsdown**: Use `tsdown` for code generation
-- **prettier**: Use `prettier` for code formatting
+##### 2. Type Safety & Type Inference (Non-Negotiable)
 
-## Pull Request Guidelines
+- The project must compile with:
+  - `strict: true`
+  - `noImplicitAny`
+  - `noUncheckedIndexedAccess`
+- **Type assertions (`as`) are forbidden** unless:
+  - There is no expressible alternative
+  - The assertion is localized and documented
+- Avoid `any` entirely. `unknown` must be used when the type is not yet known.
+- Public API types must:
+  - Infer correctly in common usage
+  - Fail loudly and clearly when misused
+- Conditional types, mapped types, and inference helpers must:
+  - Be readable
+  - Be documented when exported
+  - Avoid “type-level cleverness” that obscures intent
 
-1. **Branch Naming**: Use descriptive feature branch names
-2. **Commit Messages**: Follow conventional commit format
-3. **Testing**: All changes must include appropriate tests
-4. **Build**: Ensure `pnpm run build` passes
-5. **Typecheck**: Ensure `pnpm run typecheck` passes
-6. **Coverage**: Maintain or improve test coverage
-7. **Documentation**: Update relevant docs for public API changes
+##### Testing Scope
+
+- **Only unit tests are allowed**. Integration tests, end-to-end tests, and snapshot tests are not permitted unless explicitly requested.
+- Unit tests must cover:
+  - Runtime logic
+  - Edge cases
+  - Error conditions
+  - Type behavior
+- Type behavior must be tested using:
+  - `vitest`, using preferably `expectTypeOf`.
+  - Compile-time assertions for inference correctness
+- Every exported generic or conditional type must have:
+  - At least one positive inference test
+  - At least one negative (error) case
+- Runtime tests must:
+  - Be deterministic
+  - Avoid mocking internals unnecessarily
+  - Focus on observable behavior
+- Tests must not assert implementation details unless unavoidable.
+
+##### 3. Public API Documentation (Open Source Standard)
+
+**Documentation Is Mandatory**
+
+- Any change to the public API **must update documentation**.
+- Documentation is considered part of the deliverable.
+- Every exported symbol must have:
+  - A clear description
+  - Usage semantics
+  - Type behavior explanation (when non-trivial)
+- Public APIs must be documented using:
+  - TSDoc or JSDoc-compatible comments
+- Documentation must explain:
+  - Default behavior
+  - Edge cases
+  - Error conditions
+  - Type inference expectations
+- Examples are allowed **only for public APIs**.
+- Examples must:
+  - Be minimal
+  - Compile under `strict` mode
+  - Demonstrate inference, not verbose typing
+
+##### 9. Self-Learning, Consistency, and Reuse
+
+- Before implementing new functionality:
+  - Search existing exports
+  - Review prior art in the codebase
+- Do not reimplement solved problems.
+- If an existing solution is insufficient:
+  - Document what was reviewed
+  - Explain why it does not meet the requirement
+- Maintain consistency across:
+  - Types
+  - Naming
+  - Documentation
+  - Test style

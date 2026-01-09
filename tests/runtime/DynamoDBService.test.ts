@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DynamoDBService } from '../../src/actions/DynamoDBService'
 import { FindOne } from '../../src/actions/find-one/FindOne'
-import { Put } from '../../src/actions/put/Put'
+import { PutOne } from '../../src/actions/put-one/PutOne'
 import { Query } from '../../src/actions/query/Query'
 import { EntityCompositeAllFeatures } from '../fixtures'
 
@@ -27,8 +27,8 @@ describe('DynamoDBService', () => {
     expect((action as any).dynamo).toBe(mockDynamoClient)
   })
 
-  it('runs Put action', () => {
-    const action = dynamoDBService.run(Put).entity(EntityCompositeAllFeatures)
+  it('runs PutOne action', () => {
+    const action = dynamoDBService.run(PutOne).entity(EntityCompositeAllFeatures)
     expect(action).toBeDefined()
     expect((action as any).dynamo).toBe(mockDynamoClient)
   })

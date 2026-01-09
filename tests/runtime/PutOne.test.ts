@@ -2,12 +2,12 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { Put } from '../../src/actions/put/Put'
+import { PutOne } from '../../src/actions/put-one/PutOne'
 import { defineEntity } from '../../src/functions/defineEntity'
 import { defineTable } from '../../src/functions/defineTable'
 import { EntityCompositeAllFeatures, EntityPkString, EntityWithEntityType } from '../fixtures'
 
-describe('Put Runtime', () => {
+describe('PutOne Runtime', () => {
   let mockDynamoClient: DynamoDBDocumentClient
 
   beforeEach(() => {
@@ -19,7 +19,7 @@ describe('Put Runtime', () => {
   it('correctly calculates and sends Item for simple PK entity', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
+    const action = new PutOne(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
     await action.exec()
 
     expect(mockDynamoClient.send).toHaveBeenCalledWith(expect.any(PutCommand))
@@ -36,7 +36,7 @@ describe('Put Runtime', () => {
   it('correctly includes entity type when configured', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient).entity(EntityWithEntityType).item({ id: '1' })
+    const action = new PutOne(mockDynamoClient).entity(EntityWithEntityType).item({ id: '1' })
     await action.exec()
 
     const command = vi.mocked(mockDynamoClient.send).mock.calls[0]![0] as PutCommand
@@ -50,7 +50,7 @@ describe('Put Runtime', () => {
   it('correctly calculates and sends Item for composite PK entity', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient).entity(EntityCompositeAllFeatures).item({
+    const action = new PutOne(mockDynamoClient).entity(EntityCompositeAllFeatures).item({
       id: '1',
       email: 'test@example.com',
       age: 30,
@@ -90,7 +90,7 @@ describe('Put Runtime', () => {
 
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient).entity(entity).item({ id: '1', count: 10 })
+    const action = new PutOne(mockDynamoClient).entity(entity).item({ id: '1', count: 10 })
     await action.exec()
 
     const command = vi.mocked(mockDynamoClient.send).mock.calls[0]![0] as PutCommand
@@ -104,7 +104,7 @@ describe('Put Runtime', () => {
   it('respects custom tableName session option', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient)
+    const action = new PutOne(mockDynamoClient)
       .entity(EntityPkString)
       .item({ id: '1' })
       .options({ tableName: 'OverrideTable' })
@@ -118,7 +118,7 @@ describe('Put Runtime', () => {
   it('respects ReturnConsumedCapacity option', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    await new Put(mockDynamoClient)
+    await new PutOne(mockDynamoClient)
       .entity(EntityPkString)
       .item({ id: '1' })
       .options({ capacity: 'TOTAL' })
@@ -131,7 +131,7 @@ describe('Put Runtime', () => {
   it('respects ReturnValues option', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({ Attributes: { pk: '1' } })
 
-    const result = await new Put(mockDynamoClient)
+    const result = await new PutOne(mockDynamoClient)
       .entity(EntityPkString)
       .item({ id: '1' })
       .options({ returnValues: 'ALL_OLD' })
@@ -146,7 +146,7 @@ describe('Put Runtime', () => {
   it('handles simple condition expressions', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    await new Put(mockDynamoClient)
+    await new PutOne(mockDynamoClient)
       .entity(EntityPkString)
       .item({ id: '1' })
       .options({ condition: { attr: 'id', exists: false } })
@@ -160,7 +160,7 @@ describe('Put Runtime', () => {
   it('handles multiple nested conditions', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    await new Put(mockDynamoClient)
+    await new PutOne(mockDynamoClient)
       .entity(EntityCompositeAllFeatures)
       .item({
         id: '1',
@@ -195,7 +195,7 @@ describe('Put Runtime', () => {
     const error = new Error('DynamoDB Error')
     ;(mockDynamoClient.send as any).mockRejectedValueOnce(error)
 
-    const action = new Put(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
+    const action = new PutOne(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
 
     await expect(action.exec()).rejects.toThrow('DynamoDB Error')
   })
@@ -203,7 +203,7 @@ describe('Put Runtime', () => {
   it('does not include undefined options in the command', async () => {
     ;(mockDynamoClient.send as any).mockResolvedValueOnce({})
 
-    const action = new Put(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
+    const action = new PutOne(mockDynamoClient).entity(EntityPkString).item({ id: '1' })
     await action.exec()
 
     const command = vi.mocked(mockDynamoClient.send).mock.calls[0]![0] as PutCommand

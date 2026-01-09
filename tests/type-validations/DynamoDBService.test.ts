@@ -3,7 +3,7 @@ import { describe, expectTypeOf, it } from 'vitest'
 
 import { DynamoDBService } from '../../src/actions/DynamoDBService'
 import { FindOne, FindOneBuilder } from '../../src/actions/find-one/FindOne'
-import { Put, PutBuilder } from '../../src/actions/put/Put'
+import { PutOne, PutOneBuilder } from '../../src/actions/put-one/PutOne'
 import { Query } from '../../src/actions/query/Query'
 import { EntityCompositeAllFeatures } from '../fixtures'
 
@@ -16,9 +16,9 @@ describe('DynamoDBService Type Validations', () => {
     expectTypeOf(action).toEqualTypeOf<FindOneBuilder<typeof EntityCompositeAllFeatures>>()
   })
 
-  it('infers PutBuilder type correctly', () => {
-    const action = service.run(Put).entity(EntityCompositeAllFeatures)
-    expectTypeOf(action).toEqualTypeOf<PutBuilder<typeof EntityCompositeAllFeatures>>()
+  it('infers PutOneBuilder type correctly', () => {
+    const action = service.run(PutOne).entity(EntityCompositeAllFeatures)
+    expectTypeOf(action).toEqualTypeOf<PutOneBuilder<typeof EntityCompositeAllFeatures>>()
   })
 
   it('infers QuerySelector type correctly', () => {

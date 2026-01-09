@@ -2,7 +2,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { expectTypeOf, test } from 'vitest'
 import { z } from 'zod'
 
-import { Put } from '../../src/actions/put/Put'
+import { PutOne } from '../../src/actions/put-one/PutOne'
 import { defineEntity } from '../../src/functions/defineEntity'
 import { defineTable } from '../../src/functions/defineTable'
 
@@ -34,9 +34,9 @@ const entity = defineEntity(table, {
 
 const dynamo = {} as DynamoDBDocumentClient
 
-test('Put Action Type Checks', () => {
+test('PutOne Action Type Checks', () => {
   // 1. Initial State
-  const put = new Put(dynamo).entity(entity)
+  const put = new PutOne(dynamo).entity(entity)
   expectTypeOf(put.item).toBeCallableWith({ id: '1', name: 'test' })
   expectTypeOf(put.item).toBeCallableWith({ id: '1', name: 'test', age: 25 })
   // @ts-expect-error - missing required field
@@ -75,7 +75,7 @@ test('Put Action Type Checks', () => {
   expectTypeOf<Result>().toMatchTypeOf<{ Attributes?: any }>()
 })
 
-test('Put Action with Transform', () => {
+test('PutOne Action with Transform', () => {
   const table = defineTable({
     name: 'TransformTable',
     fields: { pk: 'string', val: 'string' },
@@ -103,7 +103,7 @@ test('Put Action with Transform', () => {
     }
   })
 
-  const put = new Put(dynamo).entity(entity)
+  const put = new PutOne(dynamo).entity(entity)
 
   // Should accept External Input
   expectTypeOf(put.item).toBeCallableWith({ id: '1', count: 10 })

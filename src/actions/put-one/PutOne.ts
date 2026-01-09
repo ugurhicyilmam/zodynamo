@@ -5,9 +5,9 @@ import { Entity } from '../../types/Entity'
 import { InferEntityInput } from '../../types/InferEntity'
 import { Action } from '../Action'
 import { buildConditionExpression } from '../utils/conditions'
-import { PutOptions, PutResponse, PutState, ResolvePutChain } from './types'
+import { PutOneOptions, PutOneResponse, PutOneState, ResolvePutOneChain } from './types'
 
-export class Put extends Action {
+export class PutOne extends Action {
   /**
    * Select an entity to perform the put operation on.
    *
@@ -16,26 +16,26 @@ export class Put extends Action {
    *
    * @example
    * ```ts
-   * new Put(dynamo).entity(UserEntity).item({ id: '1' }).exec()
+   * new PutOne(dynamo).entity(UserEntity).item({ id: '1' }).exec()
    * ```
    */
   entity<E extends Entity<any, any, any, any, any, any, any, any, any, any, any>>(
     entity: E
-  ): PutBuilder<E> {
-    return new PutBuilder(this.dynamo, entity)
+  ): PutOneBuilder<E> {
+    return new PutOneBuilder(this.dynamo, entity)
   }
 }
 
-export class PutBuilder<
+export class PutOneBuilder<
   E extends Entity<any, any, any, any, any, any, any, any, any, any, any>,
-  State extends PutState = 'INITIAL'
+  State extends PutOneState = 'INITIAL'
 > {
   constructor(
     private dynamo: DynamoDBDocumentClient,
     private entity: E,
     private state: {
       item?: any
-      options?: PutOptions<E>
+      options?: PutOneOptions<E>
     } = {}
   ) {}
 
@@ -44,8 +44,8 @@ export class PutBuilder<
    *
    * @param data - The entity data matching the schema
    */
-  item(data: InferEntityInput<E>): ResolvePutChain<this, 'ITEM_SET'> {
-    return new PutBuilder(this.dynamo, this.entity, { ...this.state, item: data }) as any
+  item(data: InferEntityInput<E>): ResolvePutOneChain<this, 'ITEM_SET'> {
+    return new PutOneBuilder(this.dynamo, this.entity, { ...this.state, item: data }) as any
   }
 
   /**
@@ -53,14 +53,14 @@ export class PutBuilder<
    *
    * @param options - Put configuration options
    */
-  options(options: Simplify<PutOptions<E>>): ResolvePutChain<this, 'ITEM_SET'> {
-    return new PutBuilder(this.dynamo, this.entity, { ...this.state, options }) as any
+  options(options: Simplify<PutOneOptions<E>>): ResolvePutOneChain<this, 'ITEM_SET'> {
+    return new PutOneBuilder(this.dynamo, this.entity, { ...this.state, options }) as any
   }
 
   /**
    * Execute the put operation.
    */
-  async exec(): Promise<PutResponse<E>> {
+  async exec(): Promise<PutOneResponse<E>> {
     const data = this.entity.schema.parse(this.state.item)
     let encoded = { ...data }
 

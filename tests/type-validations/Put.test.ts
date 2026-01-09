@@ -71,7 +71,8 @@ test('Put Action Type Checks', () => {
   expectTypeOf(itemSet.options).toBeCallableWith({ condition: { attr: 'invalid', eq: 1 } })
 
   // 4. Exec
-  expectTypeOf(itemSet.exec).returns.resolves.toBeAny()
+  type Result = Awaited<ReturnType<typeof itemSet.exec>>
+  expectTypeOf<Result>().toMatchTypeOf<{ Attributes?: any }>()
 })
 
 test('Put Action with Transform', () => {

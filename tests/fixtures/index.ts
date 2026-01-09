@@ -146,3 +146,19 @@ export const EntityCompositeSkNumber = defineEntity(TableCompositeSkNumber, {
     rangeKey: { fields: ['timestamp'], calculate: ({ timestamp }) => timestamp }
   }
 })
+
+export const TableWithEntityType = defineTable({
+  name: 'EntityTypeTable',
+  fields: { pk: 'string', __type: 'string' },
+  primaryIndex: { hashKey: 'pk' },
+  entityTypeField: '__type'
+})
+
+export const EntityWithEntityType = defineEntity(TableWithEntityType, {
+  name: 'SpecialUser',
+  schema: z.object({ id: z.string() }),
+  key: {
+    hashKey: { fields: ['id'], calculate: ({ id }) => `USER#${id}` }
+  },
+  entityType: 'USER'
+})

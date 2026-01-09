@@ -1,6 +1,9 @@
-import { Condition } from '~/actions/query/types'
-import { Entity } from '~/types/Entity'
-import { InferEntity } from '~/types/InferEntity'
+import { PutCommandOutput } from '@aws-sdk/lib-dynamodb'
+
+import { Entity } from '../../types/Entity'
+import { InferEntity } from '../../types/InferEntity'
+import { Prettify } from '../../types/utils'
+import { Condition } from '../query/types'
 
 export type PutState = 'INITIAL' | 'ITEM_SET'
 
@@ -14,6 +17,12 @@ export interface PutOptions<
   capacity?: 'NONE' | 'TOTAL' | 'INDEXES'
   tableName?: string
 }
+
+export type PutResponse<E extends Entity<any, any, any, any, any, any, any, any, any>> = Prettify<
+  Omit<PutCommandOutput, 'Attributes'> & {
+    Attributes?: InferEntity<E>
+  }
+>
 
 export type PutItemOperations = 'item'
 export type PutOptionsOperations = 'options'

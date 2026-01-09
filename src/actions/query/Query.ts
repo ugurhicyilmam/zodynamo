@@ -522,7 +522,12 @@ export class QueryBuilder<
     const index = this._state.index
     if (!index || index.kind === 'primary') return this._entity.key
     if (index.kind === 'gsi') return (this._entity.globalIndexes as any)[index.name]
-    if (index.kind === 'lsi') return (this._entity.localIndexes as any)[index.name]
+    if (index.kind === 'lsi') {
+      return {
+        ...((this._entity.localIndexes as any)[index.name] as any),
+        hashKey: this._entity.key.hashKey
+      }
+    }
   }
 
   private buildRangeExpression(options: RangeOptions<any>): {
